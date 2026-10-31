@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRole } from "@/context/RoleContext";
+import { useAuth } from "@/context/AuthContext";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import {
   LayoutDashboard,
@@ -14,16 +14,14 @@ import {
   FileText,
   CreditCard,
   Building2,
-  ShieldAlert,
-  Sliders,
-  Palette,
-  ExternalLink,
   CheckCircle,
-  AlertCircle,
   Menu,
   X,
-  ChevronRight,
   Database,
+  LogOut,
+  LogIn,
+  UserPlus,
+  ShieldAlert,
 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -121,12 +119,42 @@ const navItems: NavItem[] = [
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { role, setRole, mockUser } = useRole();
+  const { user, profile, role, signOut, demoPreviewRole, setDemoPreviewRole } = useAuth();
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showEnvModal, setShowEnvModal] = useState(false);
 
   const filteredNav = navItems.filter((item) => item.roles.includes(role));
+  const isAuthPage = pathname.startsWith("/auth/");
+
+  // If on a dedicated auth page (login/signup/reset), render full page without the internal sidebar
+  if (isAuthPage) {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-900 font-sans selection:bg-teal-100 selection:text-teal-900">
+        <header className="w-full border-b border-zinc-200 bg-white/95">
+          <div className="flex h-14 items-center justify-between px-4 sm:px-6 max-w-6xl mx-auto">
+            <Link href="/" className="flex items-center gap-2.5">
+              <div className="flex h-7 w-7 items-center justify-center rounded bg-teal-700 text-white font-semibold text-xs tracking-wider">
+                SMS
+              </div>
+              <span className="font-semibold text-sm tracking-tight text-zinc-900">
+                Subscription Manager
+              </span>
+            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/auth/login">
+                <Button size="sm" variant="ghost">Sign In</Button>
+              </Link>
+              <Link href="/auth/signup">
+                <Button size="sm">Register</Button>
+              </Link>
+            </div>
+          </div>
+        </header>
+        <main className="flex-1 flex flex-col justify-center">{children}</main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-50 text-zinc-900 font-sans selection:bg-teal-100 selection:text-teal-900">
@@ -156,8 +184,8 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
             </Link>
 
             <div className="hidden sm:flex items-center pl-2">
-              <Badge variant="neutral" className="text-[10px] uppercase font-mono">
-                Phase 1 Shell
+              <Badge variant="outline" className="text-[10px] uppercase font-mono">
+                {user ? "Authenticated" : "Demo Mode"}
               </Badge>
             </div>
           </div>
@@ -184,53 +212,99 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
               )}
             </button>
 
-            {/* Interactive Role Switcher */}
-            <div className="flex items-center rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs">
-              <span className="px-2 text-zinc-500 font-medium hidden sm:inline">
-                Role:
-              </span>
-              <button
-                onClick={() => setRole("admin")}
-                className={`px-2 py-1 rounded font-medium transition-all ${
-                  role === "admin"
-                    ? "bg-white text-zinc-900 shadow-2xs font-semibold"
-                    : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                Admin
-              </button>
-              <button
-                onClick={() => setRole("staff")}
-                className={`px-2 py-1 rounded font-medium transition-all ${
-                  role === "staff"
-                    ? "bg-white text-zinc-900 shadow-2xs font-semibold"
-                    : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                Staff
-              </button>
-              <button
-                onClick={() => setRole("customer")}
-                className={`px-2 py-1 rounded font-medium transition-all ${
-                  role === "customer"
-                    ? "bg-white text-zinc-900 shadow-2xs font-semibold"
-                    : "text-zinc-600 hover:text-zinc-900"
-                }`}
-              >
-                Customer
-              </button>
-            </div>
+            {/* If NOT signed in: display non-authenticated demo preview switcher clearly labeled */}
+            {!user ? (
+              <div className="flex items-center gap-2">
+                <div className="hidden lg:flex items-center rounded-md border border-zinc-200 bg-zinc-100 p-0.5 text-xs">
+                  <span className="px-2 text-zinc-500 font-medium text-[11px]">
+                    Demo Preview:
+                  </span>
+                  <button
+                    onClick={() => setDemoPreviewRole("admin")}
+                    className={`px-2 py-1 rounded font-medium transition-all ${
+                      role === "admin"
+                        ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                        : "text-zinc-600 hover:text-zinc-900"
+                    }`}
+                  >
+                    Admin
+                  </button>
+                  <button
+                    onClick={() => setDemoPreviewRole("staff")}
+                    className={`px-2 py-1 rounded font-medium transition-all ${
+                      role === "staff"
+                        ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                        : "text-zinc-600 hover:text-zinc-900"
+                    }`}
+                  >
+                    Staff
+                  </button>
+                  <button
+                    onClick={() => setDemoPreviewRole("customer")}
+                    className={`px-2 py-1 rounded font-medium transition-all ${
+                      role === "customer"
+                        ? "bg-white text-zinc-900 shadow-2xs font-semibold"
+                        : "text-zinc-600 hover:text-zinc-900"
+                    }`}
+                  >
+                    Customer
+                  </button>
+                </div>
 
-            {/* User profile capsule */}
-            <div className="hidden xl:flex items-center gap-2 pl-2 border-l border-zinc-200">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-zinc-700 font-medium text-xs">
-                {mockUser.name.charAt(0)}
+                <Link href="/auth/login">
+                  <Button size="sm" variant="outline">
+                    <LogIn className="h-3.5 w-3.5" />
+                    Sign In
+                  </Button>
+                </Link>
+                <Link href="/auth/signup">
+                  <Button size="sm">
+                    <UserPlus className="h-3.5 w-3.5" />
+                    Sign Up
+                  </Button>
+                </Link>
               </div>
-              <div className="text-left text-xs leading-none">
-                <p className="font-medium text-zinc-800">{mockUser.name}</p>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{mockUser.email}</p>
+            ) : (
+              /* Signed-in user capsule and Sign Out button */
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-teal-100 text-teal-800 font-semibold text-xs border border-teal-200">
+                    {(profile?.fullName || user.email || "U").charAt(0).toUpperCase()}
+                  </div>
+                  <div className="hidden sm:block text-left text-xs leading-none">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-zinc-900">
+                        {profile?.fullName || user.email?.split("@")[0]}
+                      </span>
+                      <Badge
+                        variant={
+                          profile?.role === "admin"
+                            ? "danger"
+                            : profile?.role === "staff"
+                            ? "accent"
+                            : "success"
+                        }
+                        className="text-[10px] capitalize"
+                      >
+                        {profile?.role}
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-zinc-500 mt-0.5">{user.email}</p>
+                  </div>
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={signOut}
+                  title="Sign Out of Session"
+                  className="text-zinc-600 hover:text-rose-700"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </Button>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </header>
@@ -264,11 +338,16 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
                   {role}
                 </Badge>
               </div>
+              {!user && (
+                <p className="text-[10px] text-amber-700 mt-1">
+                  Preview mode (unauthenticated). Sign in to activate real session.
+                </p>
+              )}
             </div>
 
             <nav className="flex-1 space-y-1">
               <p className="px-3 pt-2 pb-1 text-[10px] font-medium tracking-wider uppercase text-zinc-400">
-                Role Destinations
+                Navigation
               </p>
               {filteredNav.map((item) => {
                 const Icon = item.icon;
@@ -296,36 +375,6 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
                   </Link>
                 );
               })}
-
-              <div className="pt-4 border-t border-zinc-100 mt-4">
-                <p className="px-3 pb-1 text-[10px] font-medium tracking-wider uppercase text-zinc-400">
-                  Foundation & Docs
-                </p>
-                <Link
-                  href="/ui-foundation"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors ${
-                    pathname === "/ui-foundation"
-                      ? "bg-teal-50 text-teal-900 font-semibold border-l-2 border-teal-700"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                  }`}
-                >
-                  <Palette className="h-4 w-4 shrink-0 text-zinc-500" />
-                  <span>UI Foundation & Tokens</span>
-                </Link>
-                <Link
-                  href="/status"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-md transition-colors ${
-                    pathname === "/status"
-                      ? "bg-teal-50 text-teal-900 font-semibold border-l-2 border-teal-700"
-                      : "text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                  }`}
-                >
-                  <Sliders className="h-4 w-4 shrink-0 text-zinc-500" />
-                  <span>Phase 1 Architecture</span>
-                </Link>
-              </div>
             </nav>
 
             {/* Bottom info widget */}
@@ -333,10 +382,12 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
               <div className="rounded bg-zinc-100/70 p-2.5 border border-zinc-200 text-xs">
                 <div className="flex items-center gap-1.5 font-medium text-zinc-800 text-[11px]">
                   <CheckCircle className="h-3.5 w-3.5 text-teal-700" />
-                  Phase 1 Compliant
+                  Phase 3 Protected
                 </div>
                 <p className="text-[11px] text-zinc-500 mt-1">
-                  Clean app shell, typography, forms, tables, and role destinations.
+                  {user
+                    ? `Authenticated as ${profile?.role?.toUpperCase() || "CUSTOMER"}`
+                    : "Ready for live authentication"}
                 </p>
               </div>
             </div>
@@ -378,22 +429,17 @@ export const AppShell: React.FC<{ children: React.ReactNode }> = ({
 
             <div className="py-4 space-y-3 text-xs text-zinc-700">
               <p>
-                As required by <strong>Phase 1</strong>, the app keeps all secrets out
-                of source control and client code.
+                The application connects to your live Supabase project using client environment variables in <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">.env.local</code>.
               </p>
 
-              <div className="rounded border border-zinc-200 bg-zinc-50 p-3 font-mono text-[11px] text-zinc-800">
+              <div className="rounded border border-zinc-200 bg-zinc-50 p-3 font-mono text-[11px] text-zinc-800 space-y-1">
                 <div>NEXT_PUBLIC_SUPABASE_URL=...</div>
                 <div>NEXT_PUBLIC_SUPABASE_ANON_KEY=...</div>
+                <div>SUPABASE_SERVICE_ROLE_KEY=... (server-side only)</div>
               </div>
 
-              <p className="text-zinc-600">
-                To connect the existing Supabase project, provide these two public
-                credentials in a local <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">.env.local</code> file (referenced in <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-800">.env.example</code>).
-              </p>
-
               <div className="rounded bg-teal-50 border border-teal-200 p-2.5 text-teal-900">
-                <strong>Phase 2 Note:</strong> SQL schema creation, table migrations, and RLS policies are reserved for Phase 2. No tables or queries will be run in Phase 1.
+                <strong>Phase 3 Authentication:</strong> Auth policies and trusted role checks are active. Database queries enforce Row Level Security based on authenticated user IDs.
               </div>
             </div>
 

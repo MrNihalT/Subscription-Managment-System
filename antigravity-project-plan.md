@@ -50,7 +50,7 @@ Keep implementation foundations such as design tokens and architecture notes beh
 
 - [x] Phase 1 — Project setup and UI foundation
 - [x] Phase 2 — Supabase setup, SQL schema, and access rules
-- [ ] Phase 3 — Authentication and role-based views
+- [x] Phase 3 — Authentication and role-based views
 - [ ] Phase 4 — Products, plans, quotes, and subscriptions
 - [ ] Phase 5 — Invoices, discounts, payments, dashboard, and performance
 - [ ] Phase 6 — Demo polish and video-ready flow
@@ -430,20 +430,35 @@ create policy "payments_customer_read" on public.payments
 
 ## Phase 3 — Authentication and role-based views
 
-**Status:** Not started
+**Status:** Complete
 
 **Work:** Implement email/password sign-up and login, password reset email, session handling, and role-aware navigation. Add a safe initial Admin setup. Staff creation must be Admin-only. Apply the same permissions in the database and server-side actions, not only by hiding buttons in the UI.
 
 **Completion checklist:**
 
-- [ ] Sign-up, login, logout, and password reset work.
-- [ ] Admin, Staff, and Customer land on the correct views.
-- [ ] Only Admin can add staff.
-- [ ] A customer cannot read another customer's records, including by changing a URL or record ID.
+- [x] Sign-up, login, logout, and password reset work.
+- [x] Admin, Staff, and Customer land on the correct views.
+- [x] Only Admin can add staff.
+- [x] A customer cannot read another customer's records, including by changing a URL or record ID.
 
-**Changes made:** _Antigravity fills this in when the phase is complete._
+**Changes made:**
+- Removed UI Foundation and Architecture/Status showcase pages (`/ui-foundation` and `/status`) and navigation links from the product UI, keeping design tokens and component primitives in code.
+- Added password validation utility (`src/lib/auth/validation.ts`) strictly enforcing problem statement requirements: more than 8 characters (> 8), at least one uppercase letter, at least one lowercase letter, and at least one special character.
+- Implemented full auth flow:
+  - `/auth/login`: Email and password login with session cookie persistence, error handling, redirect tracking, and password recovery link.
+  - `/auth/signup`: Account creation with interactive password policy requirements checklist. Enforces that all self-registrations are strictly customer profiles via database trigger.
+  - `/auth/forgot-password`: Password reset request dispatcher triggering Supabase `resetPasswordForEmail`.
+  - `/auth/reset-password`: Set new password form with real-time password policy validation.
+  - `/auth/callback`: Server-side route handler to exchange auth code for session.
+- Implemented Next.js session management and route protection middleware (`src/middleware.ts`) using `@supabase/ssr` to protect `/admin/*`, `/staff/*`, and `/customer/*` routes.
+- Created `AuthProvider` (`src/context/AuthContext.tsx`) that reads the authenticated user's role from the trusted `public.profiles` database record, never accepting client metadata.
+- Implemented server-side Admin-only staff provisioning API (`POST /api/admin/staff`) using Supabase Auth Admin API. Added `SUPABASE_SERVICE_ROLE_KEY` placeholder to `.env.example`.
+- Wired Admin staff management interface (`src/app/admin/staff/page.tsx`) to real server-side provisioning and profiles.
 
 **Notes:**
+- Add `SUPABASE_SERVICE_ROLE_KEY` to `.env.local` to enable server-side staff invitations via Supabase Auth Admin API.
+- Customer record isolation is enforced at the database layer via Row Level Security (RLS).
+- Phase 4 remains untouched.
 
 ## Phase 4 — Products, plans, quotes, and subscriptions
 
@@ -517,4 +532,5 @@ create policy "payments_customer_read" on public.payments
 | 2026-10-31 | Plan created | Ready | Created the agreed six-phase plan, UI direction, Supabase setup notes, and starter SQL schema. |
 | 2026-10-31 | Phase 1 | Complete | Bootstrapped Next.js with TypeScript and Tailwind CSS, built restrained neutral design system with teal accent, implemented role-aware AppShell (Admin, Staff, Customer), UI Foundation styleguide, and created all role destination views. Added .env.example and safe Supabase client placeholder. |
 | 2026-10-31 | Phase 2 | Complete | User confirmed `supabase/schema.sql` was applied in Supabase; schema, RLS, indexes, duplicate invoice prevention, role guard, and setup guide are ready for Phase 3. |
+| 2026-10-31 | Phase 3 | Complete | Implemented email/password sign-up, login, logout, password reset, middleware route guards, trusted profile role resolution, Admin-only staff creation API, and removed UI Foundation/Status pages from product UI. |
 

@@ -29,7 +29,7 @@ import {
 import { Alert } from "@/components/ui/Alert";
 
 export default function DashboardPage() {
-  const { role, mockUser } = useRole();
+  const { role, mockUser, isAuthenticated } = useRole();
 
   return (
     <div className="space-y-6">
@@ -89,9 +89,15 @@ export default function DashboardPage() {
       </div>
 
       {/* Notice Banner */}
-      <Alert variant="info" title="Phase 1 Foundation Environment">
-        The application shell, navigation, and role-aware layouts are active. Database persistence and RLS policies will be bound in Phase 2 once Supabase credentials are provided.
-      </Alert>
+      {!isAuthenticated ? (
+        <Alert variant="warning" title="Unauthenticated Preview Mode">
+          You are currently previewing role destinations without an active session. <Link href="/auth/login" className="underline font-semibold text-zinc-900">Sign in</Link> or <Link href="/auth/signup" className="underline font-semibold text-zinc-900">register an account</Link> to test live Supabase authentication, database triggers, and RLS policies.
+        </Alert>
+      ) : (
+        <Alert variant="info" title="Phase 3 Authenticated Session Active">
+          Your role is loaded securely from the trusted database <code className="bg-white/80 px-1 py-0.5 rounded border border-zinc-200">public.profiles</code> record. Row Level Security enforces data access according to your authenticated profile.
+        </Alert>
+      )}
 
       {/* KPI Stats Grid */}
       {role === "admin" && (
@@ -532,23 +538,6 @@ export default function DashboardPage() {
                 </>
               )}
             </div>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>UI Foundation Showcase</CardTitle>
-              <CardDescription>
-                Design system tokens, typography, and controls
-              </CardDescription>
-            </CardHeader>
-            <p className="text-xs text-zinc-600 mb-3">
-              Explore the design system tokens, buttons, inputs, tables, and badge styling built for Phase 1.
-            </p>
-            <Link href="/ui-foundation">
-              <Button size="sm" variant="outline" className="w-full">
-                Open UI Foundation Page
-              </Button>
-            </Link>
           </Card>
         </div>
       </div>
