@@ -51,15 +51,15 @@ export async function createProduct(input: ProductInput) {
     return { error: "Authentication required." };
   }
 
-  // Verify staff/admin role
+  // Verify admin role (Admin-only per problem statement)
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "staff")) {
-    return { error: "Permission denied. Admin or Staff privileges required." };
+  if (!profile || profile.role !== "admin") {
+    return { error: "Permission denied. Admin privileges required to create products." };
   }
 
   // 1. Insert product
@@ -119,14 +119,15 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
     return { error: "Authentication required." };
   }
 
+  // Verify admin role (Admin-only per problem statement)
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "staff")) {
-    return { error: "Permission denied. Admin or Staff privileges required." };
+  if (!profile || profile.role !== "admin") {
+    return { error: "Permission denied. Admin privileges required to update products." };
   }
 
   const updateFields: any = {};
@@ -176,6 +177,24 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
 // Seed initial sample products and plans for demo testing
 export async function seedCatalogDemoData() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Authentication required." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") {
+    return { error: "Permission denied. Admin privileges required to seed catalog." };
+  }
 
   const { data: existing } = await supabase.from("products").select("id").limit(1);
   if (existing && existing.length > 0) {

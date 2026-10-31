@@ -19,7 +19,6 @@ export interface CreateSubscriptionQuoteInput {
   start_date: string;
   expiry_date?: string | null;
   payment_terms?: string;
-  status?: SubscriptionStatus;
   lines: SubscriptionLineInput[];
 }
 
@@ -216,7 +215,7 @@ export async function createSubscriptionQuote(input: CreateSubscriptionQuoteInpu
         subscription_number: subNum,
         customer_id: input.customer_id,
         plan_id: input.plan_id,
-        status: input.status || "draft",
+        status: "draft", // Always create quotes in draft; lifecycle transitions must use updateSubscriptionStatus
         start_date: input.start_date,
         expiry_date: input.expiry_date || null,
         payment_terms: input.payment_terms || "Net 30",
@@ -256,6 +255,11 @@ export async function createSubscriptionQuote(input: CreateSubscriptionQuoteInpu
 
   if (lineErr) {
     console.error("Error creating subscription lines:", lineErr.message);
+    // Atomic cleanup: remove the empty quote to avoid orphan quotes without lines
+    await supabase.from("subscriptions").delete().eq("id", subRecord.id);
+    return {
+      error: `Failed to save quote line items: ${lineErr.message}. The quote creation was cancelled.`,
+    };
   }
 
   revalidatePath("/staff/subscriptions");

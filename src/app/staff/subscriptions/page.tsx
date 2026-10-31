@@ -196,7 +196,6 @@ export default function StaffSubscriptionsPage() {
         start_date: startDate,
         expiry_date: expiryDate || null,
         payment_terms: paymentTerms,
-        status: "draft",
         lines,
       });
 

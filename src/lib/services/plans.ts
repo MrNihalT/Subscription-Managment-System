@@ -63,8 +63,8 @@ export async function createPlan(input: PlanInput) {
     .eq("id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "staff")) {
-    return { error: "Permission denied. Admin or Staff privileges required." };
+  if (!profile || profile.role !== "admin") {
+    return { error: "Permission denied. Admin privileges required to create billing plans." };
   }
 
   if (!input.product_id) {
@@ -127,8 +127,8 @@ export async function updatePlan(id: string, input: Partial<PlanInput>) {
     .eq("id", user.id)
     .single();
 
-  if (!profile || (profile.role !== "admin" && profile.role !== "staff")) {
-    return { error: "Permission denied. Admin or Staff privileges required." };
+  if (!profile || profile.role !== "admin") {
+    return { error: "Permission denied. Admin privileges required to update billing plans." };
   }
 
   const updateFields: any = {};

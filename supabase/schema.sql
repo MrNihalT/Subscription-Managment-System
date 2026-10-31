@@ -289,30 +289,30 @@ create policy "products_read_authenticated" on public.products
   for select to authenticated
   using (active or (select public.current_user_is_staff()));
 
-create policy "products_staff_manage" on public.products
+create policy "products_admin_manage" on public.products
   for all to authenticated
-  using ((select public.current_user_is_staff()))
-  with check ((select public.current_user_is_staff()));
+  using ((select public.current_user_is_admin()))
+  with check ((select public.current_user_is_admin()));
 
 -- PRODUCT VARIANTS
 create policy "variants_read_authenticated" on public.product_variants
   for select to authenticated
   using (true);
 
-create policy "variants_staff_manage" on public.product_variants
+create policy "variants_admin_manage" on public.product_variants
   for all to authenticated
-  using ((select public.current_user_is_staff()))
-  with check ((select public.current_user_is_staff()));
+  using ((select public.current_user_is_admin()))
+  with check ((select public.current_user_is_admin()));
 
 -- PLANS
 create policy "plans_read_authenticated" on public.plans
   for select to authenticated
   using (active or (select public.current_user_is_staff()));
 
-create policy "plans_staff_manage" on public.plans
+create policy "plans_admin_manage" on public.plans
   for all to authenticated
-  using ((select public.current_user_is_staff()))
-  with check ((select public.current_user_is_staff()));
+  using ((select public.current_user_is_admin()))
+  with check ((select public.current_user_is_admin()));
 
 -- SUBSCRIPTIONS
 create policy "subscriptions_customer_read" on public.subscriptions

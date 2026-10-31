@@ -64,3 +64,13 @@ Public sign-up forms in this application can never assign the `admin` or `staff`
    ```
 3. The function will safely update the user's role to `'admin'` in `public.profiles`.
 4. Subsequent staff accounts can then be managed directly by this Admin in the Admin portal.
+
+---
+
+## 5. Phase 4 Migration: Admin-Only Product & Plan RLS
+
+To restrict product, variant, and plan management (creation, update, deletion) exclusively to Admins while preserving read access for Staff and authenticated users:
+
+1. Open the Supabase **SQL Editor**.
+2. Paste and run the contents of [`supabase/migrations/20261031_admin_only_products_plans.sql`](./migrations/20261031_admin_only_products_plans.sql).
+3. Confirm that the query succeeds.
