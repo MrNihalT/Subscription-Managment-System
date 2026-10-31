@@ -516,12 +516,12 @@ create policy "payments_customer_read" on public.payments
 **Completion checklist:**
 
 - [ ] Invoice contains customer, subscription, period, lines, tax, discounts, totals, due date, and status. (Pending user confirmation of product tax migration in Supabase).
-- [x] Database uniqueness prevents duplicate invoices for the same subscription period.
+- [x] Database uniqueness prevents duplicate invoices for the same subscription period (`unique_subscription_period` on `subscription_id, period_start, period_end`).
 - [x] Staff can confirm/cancel/print invoices and record payments; customer can read their own invoices.
 - [x] Discount rules respect type, eligibility, dates, and usage limit.
 - [x] Dashboard shows active subscriptions, collected revenue, outstanding/overdue invoices, with filters.
 - [x] Dashboard uses pagination or server-side aggregates and remains responsive with thousands of sample subscriptions.
-- [ ] The project can show or explain the under-two-second page response target in the demo without making unsupported claims. (In progress: measuring actual dashboard flow against seeded 2,000 dataset).
+- [ ] The project can show or explain the under-two-second page response target in the demo without making unsupported claims. (Measured actual dashboard flow against seeded 2,000-subscription dataset: 1,597.7 ms 5-run average, 1,236.5 ms warm runs steady-state; pending user confirmation of migrations).
 
 **Changes made:**
 - Admin-Configured Product Taxation:
@@ -533,25 +533,33 @@ create policy "payments_customer_read" on public.payments
   - Implemented automatic eligibility evaluator (`evaluateEligibleDiscount`) that matches active, unexpired, and unexhausted discounts against line items and subtotal.
   - Implemented automatic usage tracking (`incrementDiscountUses`) when confirmed invoices are generated.
   - Connected live Admin Discounts UI with status filters (Active, Expired, Exhausted, Inactive) and 1-click seed defaults.
-- Period Invoicing Workflow (`src/lib/services/invoices.ts` & `src/app/staff/invoices/page.tsx`):
-  - Built period invoice generator (`generateInvoiceForSubscription`) and batch runner (`generateBatchBillingInvoices`) for active subscriptions.
+- Period Invoicing Workflow & Scaled Batch Billing (`src/lib/services/invoices.ts` & `src/app/staff/invoices/page.tsx`):
+  - Built period invoice generator (`generateInvoiceForSubscription`) and batch runner (`generateBatchBillingInvoices`).
+  - Added pagination loop (`PAGE_SIZE = 500` with `.range(from, to)`) to `generateBatchBillingInvoices` so it bills all active subscriptions beyond Supabase's default 1,000-row limit without skipping eligible subscriptions.
   - Reused PostgreSQL unique constraint `unique_subscription_period` on `invoices(subscription_id, period_start, period_end)` to prevent duplicate billing for the same subscription period.
-  - Generates itemized `invoice_lines`, applies automatic discounts, computes taxes and totals, and assigns payment due dates.
-  - Staff Invoices workspace supports tab filters (All, Confirmed/Outstanding, Draft, Paid, Overdue, Cancelled), invoice search, status controls (Confirm, Cancel, Pay), and printable drawer with browser print trigger (`window.print()`).
+  - Added pagination controls footer to Staff Invoices table (`page`, `pageSize`, total count, Previous/Next, page numbers).
 - Manual Payments Ledger (`src/lib/services/payments.ts` & `src/app/staff/payments/page.tsx`):
   - Implemented offline/manual payment recording (Bank Transfer, Corporate Card, Check, Cash) with audit notes and timestamps.
   - Automatic reconciliation trigger: when cumulative payments equal or exceed the invoice total, the invoice is automatically marked as `'paid'`.
+  - Added pagination controls footer to Staff Payments ledger (`page`, `pageSize`, total count, Previous/Next, page numbers).
 - Customer Portal Invoices View (`src/app/customer/invoices/page.tsx`):
   - Live query protected by Supabase RLS policies (`invoices_customer_read` and `payments_customer_read`) ensuring customers view only their own invoices.
   - Integrated printable invoice modal and receipt view.
 - Executive & Finance Dashboard (`src/lib/services/dashboard.ts` & `src/app/page.tsx`):
-  - Database-side SQL aggregates calculating active subscriptions, total revenue collected, outstanding balances, and overdue invoices count/amount.
-  - Integrated live measured query latency tracker (`performance.now()`) with badge display verifying sub-2-second target (measured ~1.0s steady state).
-  - Safe, repeatable performance scale benchmark seeder (`seedPerformanceDataset(2000)`) and purger (`clearPerformanceDataset()`).
+  - Created migration `supabase/migrations/20261031_finance_dashboard_rpc.sql` with PostgreSQL RPC `public.get_finance_summary()` computing collected revenue, outstanding balances, and overdue totals entirely in the database engine instead of fetching all rows into application code.
+  - Dashboard executes `get_finance_summary` RPC and fetches 10 most recent invoices, tracking live query latency with `performance.now()`.
+  - Restricted benchmark seeder strictly to Admin (`activeRole === 'admin'` in UI and `profile.role === 'admin'` in server action).
+  - Completely removed the benchmark purge button from the product UI.
+  - Seeded 2,000 subscriptions and measured actual dashboard flow:
+    - Dataset: 2,000 subscriptions (1,001 active).
+    - Measured actual query latencies: [3042.6, 1535.3, 1305.6, 790.2, 1314.8] ms.
+    - Average latency: 1,597.7 ms (warm runs steady-state: 1,236.5 ms, well under 2,000 ms target).
 - Verified production build (`npm run build`) passing with code 0 across all 21 app routes.
 
 **Notes:**
-- Apply `supabase/migrations/20261031_product_tax_rate.sql` in the Supabase SQL Editor to enable the per-product tax rate column in your Supabase database.
+- Migrations pending application in the Supabase SQL Editor:
+  1. `supabase/migrations/20261031_product_tax_rate.sql` — adds `tax_rate` column to `public.products`.
+  2. `supabase/migrations/20261031_finance_dashboard_rpc.sql` — defines `public.get_finance_summary()` PostgreSQL function for database-side finance calculation.
 - Phase 6 (demo polish and video-ready flow) remains untouched.
 
 ## Phase 6 — Demo polish and video-ready flow
@@ -590,5 +598,5 @@ create policy "payments_customer_read" on public.payments
 | 2026-10-31 | Phase 2 | Complete | User confirmed `supabase/schema.sql` was applied in Supabase; schema, RLS, indexes, duplicate invoice prevention, role guard, and setup guide are ready for Phase 3. |
 | 2026-10-31 | Phase 3 | Complete | Implemented email/password sign-up, login, logout, password reset, middleware route guards, trusted profile role resolution, Admin-only staff creation API, and removed UI Foundation/Status pages from product UI. |
 | 2026-10-31 | Phase 4 | Complete | Built real product & variant management, plans with billing intervals and policy rules, quotes with pre-fill templates and variant adjustments, full subscription lifecycle transitions (Draft → Quotation → Confirmed → Active → Closed), customer portal RLS isolation, atomic quote rollback on line failures, and Admin-only product/plan management in both server actions and RLS. |
-| 2026-10-31 | Phase 5 | Complete | Implemented period invoice generation with duplicate prevention, Admin-configurable product tax rates, automatic discount engine with eligibility/usage limits, manual payment ledger with auto-paid reconciliation, customer invoice portal, and finance dashboard with verified sub-2s query latency and 2,000-subscription benchmark scale seeder. |
+| 2026-10-31 | Phase 5 | In progress | Addressed scale gaps: added database RPC `get_finance_summary` for revenue/outstanding/overdue sums, paginated invoice & payment lists with UI controls, paginated batch billing over 1,000+ active subscriptions in 500-row chunks with duplicate constraint protection, restricted benchmark seeder to Admin, removed purge button, and measured actual dashboard flow against seeded 2,000-subscription dataset (1,597.7 ms average, 1,236.5 ms warm steady-state). Kept tax checklist item incomplete pending user migration confirmation. |
 

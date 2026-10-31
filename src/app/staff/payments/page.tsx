@@ -23,6 +23,8 @@ export default function StaffPaymentsPage() {
   const [payments, setPayments] = useState<any[]>([]);
   const [unpaidInvoices, setUnpaidInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
 
   // Record Payment Modal State
@@ -37,11 +39,14 @@ export default function StaffPaymentsPage() {
   const loadData = async () => {
     setLoading(true);
     const [payRes, invRes] = await Promise.all([
-      getPayments(),
+      getPayments({ page, pageSize: 15 }),
       getInvoices({ pageSize: 100 }),
     ]);
 
-    if (payRes.data) setPayments(payRes.data);
+    if (payRes.data) {
+      setPayments(payRes.data);
+      setTotalCount(payRes.totalCount);
+    }
     if (invRes.data) {
       // Find invoices with unpaid balance
       const eligible = invRes.data.filter(
@@ -54,7 +59,7 @@ export default function StaffPaymentsPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [page]);
 
   const openModal = () => {
     setAlertState(null);
@@ -263,6 +268,40 @@ export default function StaffPaymentsPage() {
               ))}
             </TableBody>
           </Table>
+
+          {/* Pagination Footer */}
+          {totalCount > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-zinc-200 bg-zinc-50/50 text-xs text-zinc-600">
+              <div>
+                Showing <span className="font-semibold text-zinc-900">{(page - 1) * 15 + 1}</span> to{" "}
+                <span className="font-semibold text-zinc-900">{Math.min(page * 15, totalCount)}</span> of{" "}
+                <span className="font-semibold text-zinc-900">{totalCount}</span> recorded payments
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                  className="text-xs h-7 px-2.5"
+                >
+                  Previous
+                </Button>
+                <span className="text-xs font-mono px-2 text-zinc-700">
+                  Page {page} of {Math.ceil(totalCount / 15) || 1}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page * 15 >= totalCount || loading}
+                  className="text-xs h-7 px-2.5"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

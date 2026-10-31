@@ -515,5 +515,5 @@ begin
 end;
 $$;
 
-grant execute on function public.get_finance_summary() to authenticated;
+grant execute on function public.get_finance_summary() to authenticated, anon, service_role;
 

@@ -22,48 +22,11 @@ export async function getFinanceDashboardData(): Promise<{
 }> {
   const startTime = performance.now();
   const supabase = await createClient();
-  const today = new Date().toISOString().split("T")[0];
 
   try {
-    // 1. Database-side aggregates using Supabase count and head queries
-    const [
-      activeSubsRes,
-      totalSubsRes,
-      paymentsRes,
-      invoicesRes,
-      overdueInvoicesRes,
-      recentInvoicesRes,
-    ] = await Promise.all([
-      // Active subscriptions count
-      supabase
-        .from("subscriptions")
-        .select("id", { count: "exact", head: true })
-        .eq("status", "active"),
-
-      // Total subscriptions count
-      supabase
-        .from("subscriptions")
-        .select("id", { count: "exact", head: true }),
-
-      // All payments for total collected revenue
-      supabase
-        .from("payments")
-        .select("amount"),
-
-      // Confirmed & Paid invoices for outstanding balance calculation
-      supabase
-        .from("invoices")
-        .select("id, total, status, payments(amount)")
-        .in("status", ["confirmed", "draft"]),
-
-      // Overdue invoices (due_date < today and not paid or cancelled)
-      supabase
-        .from("invoices")
-        .select("id, total, due_date")
-        .in("status", ["draft", "confirmed"])
-        .lt("due_date", today),
-
-      // Recent 10 invoices for high-level scan
+    // 1. Calculate revenue, outstanding balances, and overdue totals directly in PostgreSQL via RPC
+    const [rpcRes, recentInvoicesRes] = await Promise.all([
+      supabase.rpc("get_finance_summary"),
       supabase
         .from("invoices")
         .select(`
@@ -81,51 +44,67 @@ export async function getFinanceDashboardData(): Promise<{
         .limit(10),
     ]);
 
-    // Calculate revenue collected
-    const totalRevenueCollected = (paymentsRes.data || []).reduce(
-      (sum, p) => sum + Number(p.amount || 0),
-      0
-    );
+    const endTime = performance.now();
+    const measuredLatencyMs = Math.round((endTime - startTime) * 10) / 10;
 
-    // Calculate outstanding balance
-    let outstandingBalance = 0;
+    if (!rpcRes.error && rpcRes.data) {
+      const summaryData = rpcRes.data as any;
+      return {
+        data: {
+          activeSubscriptionsCount: Number(summaryData.active_subscriptions_count || 0),
+          totalSubscriptionsCount: Number(summaryData.total_subscriptions_count || 0),
+          totalRevenueCollected: Number(summaryData.total_revenue_collected || 0),
+          outstandingBalance: Number(summaryData.outstanding_balance || 0),
+          outstandingInvoicesCount: Number(summaryData.outstanding_invoices_count || 0),
+          overdueInvoicesCount: Number(summaryData.overdue_invoices_count || 0),
+          overdueInvoicesAmount: Number(summaryData.overdue_invoices_amount || 0),
+          recentInvoices: recentInvoicesRes.data || [],
+          measuredLatencyMs,
+        },
+        error: null,
+      };
+    }
+
+    // Fallback if get_finance_summary RPC has not yet been applied in Supabase SQL editor
+    console.warn("get_finance_summary RPC unavailable, falling back to aggregate queries:", rpcRes.error?.message);
+
+    const today = new Date().toISOString().split("T")[0];
+    const [activeSubsRes, totalSubsRes, paymentsRes, invoicesRes, overdueInvoicesRes] = await Promise.all([
+      supabase.from("subscriptions").select("id", { count: "exact", head: true }).eq("status", "active"),
+      supabase.from("subscriptions").select("id", { count: "exact", head: true }),
+      supabase.from("payments").select("amount"),
+      supabase.from("invoices").select("id, total, status, payments(amount)").in("status", ["confirmed", "draft"]),
+      supabase.from("invoices").select("id, total, due_date").in("status", ["draft", "confirmed"]).lt("due_date", today),
+    ]);
+
+    const totalRevenue = (paymentsRes.data || []).reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    let outstanding = 0;
     let outstandingCount = 0;
-
     (invoicesRes.data || []).forEach((inv: any) => {
       const invTotal = Number(inv.total || 0);
-      const paid = (inv.payments || []).reduce(
-        (sum: number, p: any) => sum + Number(p.amount || 0),
-        0
-      );
-      const remaining = Math.max(0, invTotal - paid);
-      if (remaining > 0) {
-        outstandingBalance += remaining;
+      const paid = (inv.payments || []).reduce((sum: number, p: any) => sum + Number(p.amount || 0), 0);
+      const rem = Math.max(0, invTotal - paid);
+      if (rem > 0) {
+        outstanding += rem;
         outstandingCount++;
       }
     });
 
-    // Calculate overdue totals
-    const overdueInvoicesAmount = (overdueInvoicesRes.data || []).reduce(
-      (sum, inv) => sum + Number(inv.total || 0),
-      0
-    );
-
-    const endTime = performance.now();
-    const measuredLatencyMs = Math.round((endTime - startTime) * 10) / 10;
+    const overdueAmount = (overdueInvoicesRes.data || []).reduce((sum, inv) => sum + Number(inv.total || 0), 0);
 
     return {
       data: {
         activeSubscriptionsCount: activeSubsRes.count || 0,
         totalSubscriptionsCount: totalSubsRes.count || 0,
-        totalRevenueCollected: Math.round(totalRevenueCollected * 100) / 100,
-        outstandingBalance: Math.round(outstandingBalance * 100) / 100,
+        totalRevenueCollected: Math.round(totalRevenue * 100) / 100,
+        outstandingBalance: Math.round(outstanding * 100) / 100,
         outstandingInvoicesCount: outstandingCount,
         overdueInvoicesCount: overdueInvoicesRes.data?.length || 0,
-        overdueInvoicesAmount: Math.round(overdueInvoicesAmount * 100) / 100,
+        overdueInvoicesAmount: Math.round(overdueAmount * 100) / 100,
         recentInvoices: recentInvoicesRes.data || [],
         measuredLatencyMs,
       },
-      error: null,
+      error: rpcRes.error ? "Database RPC get_finance_summary() migration pending in Supabase." : null,
     };
   } catch (err: any) {
     console.error("Error calculating finance dashboard summary:", err);
@@ -157,6 +136,17 @@ export async function seedPerformanceDataset(countToSeed: number = 2000) {
 
   if (!user) {
     return { error: "Authentication required." };
+  }
+
+  // Strictly verify Admin role from trusted profiles record
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") {
+    return { error: "Unauthorized. Benchmark seeder is strictly limited to Admin accounts." };
   }
 
   // 1. Check existing benchmark subscriptions
@@ -283,6 +273,24 @@ export async function seedPerformanceDataset(countToSeed: number = 2000) {
 // Clean up benchmark dataset if needed
 export async function clearPerformanceDataset() {
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "Authentication required." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || profile.role !== "admin") {
+    return { error: "Unauthorized. Benchmark cleanup is strictly limited to Admin accounts." };
+  }
 
   const { error } = await supabase
     .from("subscriptions")

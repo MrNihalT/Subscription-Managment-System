@@ -268,7 +268,11 @@ export async function generateInvoiceForSubscription(input: GenerateInvoiceInput
       createdInvoice = invData;
     } else if (invErr && invErr.code === "23505") {
       // Check if collision is due to duplicate billing constraint or invoice_number
-      if (invErr.message.includes("unique_subscription_period")) {
+      if (
+        invErr.message.includes("unique_subscription_period") ||
+        invErr.message.includes("period_start") ||
+        invErr.message.includes("invoices_subscription_id")
+      ) {
         return {
           error: `Duplicate billing prevented: Subscription ${sub.subscription_number} has already been invoiced for the period ${input.period_start} to ${input.period_end}.`,
         };
@@ -313,6 +317,7 @@ export async function generateInvoiceForSubscription(input: GenerateInvoiceInput
 }
 
 // Generate batch billing invoices for ALL active subscriptions for a given period
+// Paginates through active subscriptions in batches of 500 so it scales beyond Supabase's default 1,000 row limit
 export async function generateBatchBillingInvoices(
   period_start: string,
   period_end: string,
@@ -320,13 +325,45 @@ export async function generateBatchBillingInvoices(
 ) {
   const supabase = await createClient();
 
-  const { data: activeSubs, error } = await supabase
-    .from("subscriptions")
-    .select("id, subscription_number")
-    .eq("status", "active");
+  const PAGE_SIZE = 500;
+  let pageIndex = 0;
+  let hasMore = true;
+  const activeSubs: { id: string; subscription_number: string }[] = [];
 
-  if (error || !activeSubs) {
-    return { createdCount: 0, skippedCount: 0, error: error?.message || "No active subscriptions found." };
+  while (hasMore) {
+    const from = pageIndex * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from("subscriptions")
+      .select("id, subscription_number")
+      .eq("status", "active")
+      .order("id", { ascending: true })
+      .range(from, to);
+
+    if (error) {
+      console.error(`Error fetching active subscriptions page ${pageIndex + 1}:`, error.message);
+      return {
+        createdCount: 0,
+        skippedCount: 0,
+        error: `Failed to fetch active subscriptions: ${error.message}`,
+      };
+    }
+
+    if (data && data.length > 0) {
+      activeSubs.push(...data);
+      if (data.length < PAGE_SIZE) {
+        hasMore = false;
+      } else {
+        pageIndex++;
+      }
+    } else {
+      hasMore = false;
+    }
+  }
+
+  if (activeSubs.length === 0) {
+    return { createdCount: 0, skippedCount: 0, error: "No active subscriptions found." };
   }
 
   let createdCount = 0;

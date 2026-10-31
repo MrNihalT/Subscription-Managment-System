@@ -19,7 +19,6 @@ import {
   Clock,
   Gauge,
   Sparkles,
-  Trash2,
   RefreshCw,
   DollarSign,
 } from "lucide-react";
@@ -38,7 +37,6 @@ import { Alert } from "@/components/ui/Alert";
 import {
   getFinanceDashboardData,
   seedPerformanceDataset,
-  clearPerformanceDataset,
   FinanceSummary,
 } from "@/lib/services/dashboard";
 
@@ -89,22 +87,6 @@ export default function DashboardPage() {
       await fetchDashboardData();
     } catch (err: any) {
       setActionMessage(err.message || "Failed to seed benchmark data.");
-    } finally {
-      setSeedingLoading(false);
-    }
-  };
-
-  const handleClearScale = async () => {
-    setSeedingLoading(true);
-    setActionMessage("Purging benchmark scale dataset...");
-    try {
-      const res = await clearPerformanceDataset();
-      if (res.message) {
-        setActionMessage(res.message);
-      }
-      await fetchDashboardData();
-    } catch (err: any) {
-      setActionMessage(err.message || "Failed to clear benchmark data.");
     } finally {
       setSeedingLoading(false);
     }
@@ -182,15 +164,16 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <Gauge className="h-4 w-4 text-teal-400" />
               <h3 className="text-sm font-semibold tracking-tight text-white">
-                Database Performance &amp; Scalability Benchmark
+                Dashboard Performance &amp; Scalability Measurement
               </h3>
-              <Badge variant="accent" className="bg-teal-950 text-teal-300 border-teal-800">
-                Verified: {summary.measuredLatencyMs} ms
+              <Badge variant="accent" className="bg-teal-950 text-teal-300 border-teal-800 font-mono">
+                {summary.measuredLatencyMs} ms
               </Badge>
             </div>
             <p className="text-xs text-zinc-400">
-              Database-side SQL aggregates over {summary.totalSubscriptionsCount.toLocaleString()} total subscriptions.
-              Target response is &lt; 2.0s; measured latency is {summary.measuredLatencyMs}ms (verified responsive).
+              Measured server-side execution time of the actual finance dashboard query over{" "}
+              <span className="font-semibold text-zinc-200">{summary.totalSubscriptionsCount.toLocaleString()}</span> subscriptions.
+              Target response is &lt; 2,000 ms.
             </p>
             {actionMessage && (
               <p className="text-xs text-teal-300 font-mono mt-1">
@@ -210,25 +193,16 @@ export default function DashboardPage() {
               <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
               Re-measure
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSeedScale}
-              disabled={loading || seedingLoading}
-              className="text-xs bg-teal-600 hover:bg-teal-500 text-white"
-            >
-              <Sparkles className="h-3.5 w-3.5 mr-1" />
-              {seedingLoading ? "Seeding..." : "Seed 2,000 Scale Dataset"}
-            </Button>
-            {summary.totalSubscriptionsCount > 50 && (
+            {/* Seeder clearly restricted strictly to Admin */}
+            {activeRole === "admin" && (
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={handleClearScale}
+                onClick={handleSeedScale}
                 disabled={loading || seedingLoading}
-                className="text-xs text-rose-300 hover:bg-rose-950 hover:text-rose-200"
+                className="text-xs bg-teal-600 hover:bg-teal-500 text-white"
               >
-                <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Purge Benchmark Data
+                <Sparkles className="h-3.5 w-3.5 mr-1" />
+                {seedingLoading ? "Seeding..." : "Seed 2,000 Scale Dataset"}
               </Button>
             )}
           </div>

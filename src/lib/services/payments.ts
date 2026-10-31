@@ -11,9 +11,21 @@ export interface RecordPaymentInput {
   note?: string;
 }
 
-// Fetch all recorded payments with invoice and customer context
-export async function getPayments(customerId?: string) {
+export interface PaymentFilters {
+  customerId?: string;
+  page?: number;
+  pageSize?: number;
+  search?: string;
+}
+
+// Fetch recorded payments with pagination, invoice and customer context
+export async function getPayments(filters: PaymentFilters | string = {}) {
   const supabase = await createClient();
+  const filterObj: PaymentFilters = typeof filters === "string" ? { customerId: filters } : filters;
+  const page = filterObj.page || 1;
+  const pageSize = filterObj.pageSize || 15;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
   let query = supabase
     .from("payments")
@@ -26,23 +38,22 @@ export async function getPayments(customerId?: string) {
         status,
         customer:customers(id, name, email, auth_user_id)
       )
-    `)
+    `, { count: "exact" })
     .order("paid_at", { ascending: false });
 
-  const { data: payments, error } = await query;
+  const { data: payments, error, count } = await query.range(from, to);
 
   if (error) {
     console.error("Error fetching payments:", error.message);
-    return { data: [], error: error.message };
+    return { data: [], totalCount: 0, error: error.message };
   }
 
-  // Filter if customerId provided (or let RLS handle it)
   let result = payments || [];
-  if (customerId) {
-    result = result.filter((p: any) => p.invoice?.customer?.id === customerId);
+  if (filterObj.customerId) {
+    result = result.filter((p: any) => p.invoice?.customer?.id === filterObj.customerId);
   }
 
-  return { data: result, error: null };
+  return { data: result, totalCount: count || 0, error: null };
 }
 
 // Record manual payment against an invoice (no payment gateway needed)
