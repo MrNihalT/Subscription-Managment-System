@@ -547,6 +547,7 @@ create policy "payments_customer_read" on public.payments
   - Integrated printable invoice modal and receipt view.
 - Executive & Finance Dashboard (`src/lib/services/dashboard.ts` & `src/app/page.tsx`):
   - Created migration `supabase/migrations/20261031_finance_dashboard_rpc.sql` with PostgreSQL RPC `public.get_finance_summary()` computing collected revenue, outstanding balances, and overdue totals entirely in the database engine instead of fetching all rows into application code.
+  - Secured `get_finance_summary()` with strict role verification checking the caller's trusted `public.profiles.role` (`auth.uid()`), restricting execution strictly to `'admin'` and `'staff'`. Revoked execution from `public` and `anon`; granted only to `authenticated`. Maintained safe `set search_path = ''`.
   - Dashboard executes `get_finance_summary` RPC and fetches 10 most recent invoices, tracking live query latency with `performance.now()`.
   - Restricted benchmark seeder strictly to Admin (`activeRole === 'admin'` in UI and `profile.role === 'admin'` in server action).
   - Completely removed the benchmark purge button from the product UI.
@@ -557,9 +558,9 @@ create policy "payments_customer_read" on public.payments
 - Verified production build (`npm run build`) passing with code 0 across all 21 app routes.
 
 **Notes:**
-- Migrations pending application in the Supabase SQL Editor:
+- Migrations pending application by the user in the Supabase SQL Editor:
   1. `supabase/migrations/20261031_product_tax_rate.sql` — adds `tax_rate` column to `public.products`.
-  2. `supabase/migrations/20261031_finance_dashboard_rpc.sql` — defines `public.get_finance_summary()` PostgreSQL function for database-side finance calculation.
+  2. `supabase/migrations/20261031_finance_dashboard_rpc.sql` — defines secured `public.get_finance_summary()` PostgreSQL function with caller role check (Admin/Staff only) for database-side finance calculation.
 - Phase 6 (demo polish and video-ready flow) remains untouched.
 
 ## Phase 6 — Demo polish and video-ready flow

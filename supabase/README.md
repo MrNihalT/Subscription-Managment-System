@@ -85,3 +85,19 @@ To enable Admin-configured tax rates automatically applied across subscription l
 2. Paste and run the contents of [`supabase/migrations/20261031_product_tax_rate.sql`](./migrations/20261031_product_tax_rate.sql).
 3. Confirm that the query succeeds.
 
+---
+
+## 7. Phase 5 Migration: Secured Finance Dashboard Aggregate RPC
+
+To enable high-performance, database-side calculation of revenue, outstanding balances, and overdue totals restricted strictly to Admin and Staff callers:
+
+1. Open the Supabase **SQL Editor**.
+2. Paste and run the contents of [`supabase/migrations/20261031_finance_dashboard_rpc.sql`](./migrations/20261031_finance_dashboard_rpc.sql).
+3. Confirm that the query succeeds.
+
+### Security Guarantees:
+- **Role Verification**: Internal verification checks `public.profiles.role` for the caller's `auth.uid()`, strictly allowing only `'admin'` or `'staff'`. Any unauthorized caller triggers an exception (`Access denied: caller does not have staff or admin privileges`).
+- **Least Privilege Access**: Execution is revoked from `public` and `anon`; granted only to authenticated users (who must pass the internal role check).
+- **Safe Search Path**: Functions with `set search_path = ''` to prevent search_path hijacking vulnerabilities.
+
+

@@ -466,6 +466,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_caller_role text;
   v_active_subs bigint;
   v_total_subs bigint;
   v_revenue numeric;
@@ -474,10 +475,23 @@ declare
   v_overdue_count bigint;
   v_overdue_amount numeric;
 begin
+  -- 1. Security Check: Restrict to Admin and Staff via caller's trusted profile role
+  select p.role into v_caller_role
+  from public.profiles p
+  where p.id = (select auth.uid());
+
+  if v_caller_role is null or v_caller_role not in ('admin', 'staff') then
+    raise exception 'Access denied: caller does not have staff or admin privileges';
+  end if;
+
+  -- 2. Subscriptions counts
   select count(*) into v_total_subs from public.subscriptions;
   select count(*) into v_active_subs from public.subscriptions where status = 'active';
+
+  -- 3. Total collected revenue computed directly in PostgreSQL
   select coalesce(sum(amount), 0) into v_revenue from public.payments;
 
+  -- 4. Outstanding and Overdue balances computed via database-side aggregate
   with inv_totals as (
     select
       i.id,
@@ -515,5 +529,8 @@ begin
 end;
 $$;
 
-grant execute on function public.get_finance_summary() to authenticated, anon, service_role;
+-- Revoke execute from public and anon; grant only to authenticated callers
+revoke execute on function public.get_finance_summary() from public;
+revoke execute on function public.get_finance_summary() from anon;
+grant execute on function public.get_finance_summary() to authenticated;
 
