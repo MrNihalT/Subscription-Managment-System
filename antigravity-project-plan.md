@@ -1,0 +1,505 @@
+# Subscription Management System — Antigravity Project Plan
+
+## How to use this file
+
+This file is the project's source of truth. Before starting any phase, read this file and review the current app so you know what is already complete. Do not rebuild completed work.
+
+At the start of a phase, change its status to **In progress**. When finished, update this file before moving on:
+
+1. Mark the phase **Complete** only when its completion checklist is satisfied.
+2. Record what changed in that phase's **Changes made** section.
+3. Record important choices, setup steps, or blockers in **Notes**.
+4. Update the overall progress and append a dated entry to the change log.
+5. If the phase is incomplete, leave it **In progress** or **Blocked** and say what remains. Never mark unfinished work complete.
+
+Keep the plan and change log concise and factual. Preserve earlier entries. Do not change the agreed product scope or visual direction without recording why.
+
+## Project goal
+
+Build a simple, polished subscription-management demo for the hackathon trial round. The team submits a **video of the working project**. The video should clearly show the main billing journey, the three user roles, and that the dashboard stays responsive with a large sample dataset.
+
+This is a focused demo, not a production payment platform. Record payments manually; do not add a payment gateway unless the user asks for one.
+
+## Agreed stack
+
+- **Frontend:** React with TypeScript. Use the framework already present in the project if one has been chosen; do not migrate frameworks without a clear reason.
+- **Backend and data:** Supabase Auth and PostgreSQL.
+- **Styling:** the existing styling system, or a small, consistent CSS/Tailwind setup if the project has none.
+- **Email:** Supabase password-reset email for the demo. Configure Supabase's email settings; never ask for or store the user's personal Google password.
+
+Keep the implementation straightforward. Prefer Supabase's built-in auth and database features over adding separate services.
+
+## Product requirements from the problem statement
+
+- Roles: Admin, Staff, Customer. Admin manages the system and is the only role allowed to add staff. Staff handles day-to-day billing. Customers can see only their own subscriptions and invoices.
+- Products: name, type, sales price, cost price, notes, and optional variants that can adjust the price.
+- Plans: price, daily/weekly/monthly/yearly billing interval, minimum quantity, availability dates, and configurable end, pause, early-close, and renewal behavior.
+- Quotes and subscriptions: quotation templates; customer, plan, dates, payment terms, product lines, quantities, prices, taxes, and totals; statuses Draft → Quotation → Confirmed → Active → Closed.
+- Invoices: generated from subscriptions with customer and line details, tax, and totals; staff can confirm, cancel, send, or print; track Draft, Confirmed, and Paid states. A billing period must not be billed twice or skipped.
+- Discounts: fixed amount or percentage, optional minimum purchase/quantity, start/end dates, usage limit, product or subscription scope, automatic application, and automatic expiry.
+- Payments and reporting: manually record payment method, amount, date, and note against an invoice. Show paid, outstanding, and overdue invoices, active subscriptions, revenue, and filters/summary views.
+- Performance: the brief asks for pages to respond in under two seconds with thousands of subscriptions. Keep queries paginated, add useful indexes, and demonstrate performance with realistic sample data.
+
+## UI direction
+
+Make the product calm, clear, and easy to use. Use a restrained neutral palette, readable typography, consistent spacing, and one purposeful accent color chosen to suit the interface. Avoid generic AI-generated styling, decorative gradients, excessive rounded cards, and trendy blue/rose palettes. Prioritize clear labels, useful empty states, tables that scan well, and short forms with sensible defaults.
+
+## Overall progress
+
+- [x] Phase 1 — Project setup and UI foundation
+- [ ] Phase 2 — Supabase setup, SQL schema, and access rules
+- [ ] Phase 3 — Authentication and role-based views
+- [ ] Phase 4 — Products, plans, quotes, and subscriptions
+- [ ] Phase 5 — Invoices, discounts, payments, dashboard, and performance
+- [ ] Phase 6 — Demo polish and video-ready flow
+
+## Phase 1 — Project setup and UI foundation
+
+**Status:** Complete
+
+**Work:** Inspect the existing project first. Set up the app shell, navigation, shared page layout, typography, buttons, forms, and table styles. Create role-aware navigation placeholders for Admin, Staff, and Customer. Keep the layout usable on a typical laptop screen and avoid unnecessary components or dependencies.
+
+**Completion checklist:**
+
+- [x] Existing app structure was reviewed before edits.
+- [x] App starts and the main navigation/layout is in place.
+- [x] Visual direction above is reflected in the interface.
+- [x] Admin, Staff, and Customer destinations are represented without fake functionality being presented as complete.
+
+**Changes made:**
+- Initialized Next.js 16 with TypeScript and Tailwind CSS as requested, ensuring zero extraneous dependencies.
+- Created restrained neutral design tokens (zinc-50 surface, zinc-200 subtle borders, zinc-900 text) paired with a purposeful deep teal accent (`teal-700` / `#0f766e`), avoiding flashy gradients and trendy blue/rose palettes.
+- Implemented accessible UI primitives: `Button` (with variants, loading, disabled states), `Badge` (semantic lifecycle pills), `Input`, `Select`, `Card`, `Alert`, `EmptyState`, and high-density scannable `Table` with tabular numerals (`tabular-nums`).
+- Built the responsive `AppShell` with top branding, user persona preview, Supabase connection status indicator, and interactive Role Switcher between Admin, Staff, and Customer.
+- Created dedicated destination pages:
+  - Admin: Dashboard (`/`), Products & Variants (`/admin/products`), Plans (`/admin/plans`), Staff Management (`/admin/staff`), and Discounts (`/admin/discounts`).
+  - Staff: Billing Dashboard (`/`), Customers Directory (`/staff/customers`), Quotes & Subscriptions (`/staff/subscriptions`), Invoices (`/staff/invoices`), and Manual Payment Log (`/staff/payments`).
+  - Customer: Customer Portal Home (`/customer/portal`), My Subscriptions (`/customer/subscriptions`), and Invoices & Receipts (`/customer/invoices`).
+  - Foundation: Interactive design token styleguide (`/ui-foundation`) and Architecture Status (`/status`).
+- Added `.env.example` with `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` placeholders, and created a client utility in `src/lib/supabase.ts` that safely validates credentials while keeping secrets out of source control.
+- Ensured no database tables or SQL migrations were executed in Phase 1 (reserved for Phase 2).
+
+**Notes:**
+- The dev server is running on port 3000 (`http://localhost:3000`).
+- To connect the Supabase project in Phase 2, provide `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`.
+
+## Phase 2 — Supabase setup, SQL schema, and access rules
+
+**Status:** Not started
+
+**Work:** Connect the app to a Supabase project. Add a readable SQL setup file to the repository and apply it through the Supabase SQL Editor. Set up the tables and indexes needed for the agreed demo scope. Enable Row Level Security (RLS); customers must only read their own customer record, subscriptions, invoices, invoice lines, and payments. Admin/Staff access should be explicit. Do not put a Supabase service-role key in browser code.
+
+### Supabase setup steps
+
+1. Create a Supabase project.
+2. In **Project Settings → API**, copy the Project URL and anon/publishable key into the app's local environment file using the variable names the existing app expects (commonly `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`). Never commit real secrets.
+3. In **SQL Editor**, run the project SQL setup file. Keep the SQL file in the repository so the setup can be repeated.
+4. In **Authentication → URL Configuration**, set the local app URL and the allowed password-reset redirect URL.
+5. In **Authentication → Providers**, keep email/password enabled. Configure the email sender for password reset. Use Supabase's configured email service; do not use or request a personal Google account password.
+6. Create the initial Admin using Supabase Auth, then assign the Admin role through a trusted setup process. Never allow a user to choose their own Admin/Staff role at sign-up.
+7. Add demo seed data through a safe seed script or the Supabase dashboard. Keep credentials and real personal data out of the repository.
+
+### Starter SQL schema
+
+This is a compact starting schema for the demo. Antigravity should adapt it to the existing project, keep the resulting SQL setup file in the repository, and explain any changes here. Do not blindly run a second copy if equivalent tables already exist.
+
+```sql
+create extension if not exists pgcrypto;
+
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  full_name text not null default '',
+  role text not null default 'customer'
+    check (role in ('admin', 'staff', 'customer')),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.customers (
+  id uuid primary key default gen_random_uuid(),
+  auth_user_id uuid unique references public.profiles(id) on delete set null,
+  name text not null,
+  email text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.products (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  product_type text not null default 'subscription',
+  sales_price numeric(12,2) not null default 0 check (sales_price >= 0),
+  cost_price numeric(12,2) not null default 0 check (cost_price >= 0),
+  notes text not null default '',
+  active boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.product_variants (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  name text not null,
+  price_adjustment numeric(12,2) not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.plans (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete restrict,
+  name text not null,
+  price numeric(12,2) not null check (price >= 0),
+  billing_interval text not null
+    check (billing_interval in ('daily', 'weekly', 'monthly', 'yearly')),
+  minimum_quantity integer not null default 1 check (minimum_quantity > 0),
+  available_from date,
+  available_until date,
+  allow_pause boolean not null default false,
+  allow_early_close boolean not null default true,
+  allow_renewal boolean not null default true,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  check (available_until is null or available_from is null or available_until >= available_from)
+);
+
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  subscription_number text not null unique,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  plan_id uuid not null references public.plans(id) on delete restrict,
+  status text not null default 'draft'
+    check (status in ('draft', 'quotation', 'confirmed', 'active', 'paused', 'closed')),
+  start_date date not null,
+  expiry_date date,
+  payment_terms text not null default '',
+  created_at timestamptz not null default now(),
+  check (expiry_date is null or expiry_date >= start_date)
+);
+
+create table if not exists public.subscription_lines (
+  id uuid primary key default gen_random_uuid(),
+  subscription_id uuid not null references public.subscriptions(id) on delete cascade,
+  product_id uuid not null references public.products(id) on delete restrict,
+  variant_id uuid references public.product_variants(id) on delete set null,
+  description text not null,
+  quantity integer not null default 1 check (quantity > 0),
+  unit_price numeric(12,2) not null check (unit_price >= 0),
+  tax_rate numeric(5,2) not null default 0 check (tax_rate >= 0),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.discounts (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  discount_type text not null check (discount_type in ('fixed', 'percentage')),
+  value numeric(12,2) not null check (value > 0),
+  minimum_purchase numeric(12,2) not null default 0,
+  minimum_quantity integer not null default 1,
+  starts_at date,
+  ends_at date,
+  usage_limit integer,
+  uses_count integer not null default 0,
+  product_id uuid references public.products(id) on delete cascade,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  check (discount_type <> 'percentage' or value <= 100)
+);
+
+create table if not exists public.invoices (
+  id uuid primary key default gen_random_uuid(),
+  invoice_number text not null unique,
+  subscription_id uuid not null references public.subscriptions(id) on delete restrict,
+  customer_id uuid not null references public.customers(id) on delete restrict,
+  period_start date not null,
+  period_end date not null,
+  status text not null default 'draft'
+    check (status in ('draft', 'confirmed', 'paid', 'cancelled')),
+  subtotal numeric(12,2) not null default 0,
+  discount_total numeric(12,2) not null default 0,
+  tax_total numeric(12,2) not null default 0,
+  total numeric(12,2) not null default 0,
+  due_date date,
+  created_at timestamptz not null default now(),
+  check (period_end >= period_start),
+  unique (subscription_id, period_start, period_end)
+);
+
+create table if not exists public.invoice_lines (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.invoices(id) on delete cascade,
+  description text not null,
+  quantity integer not null default 1 check (quantity > 0),
+  unit_price numeric(12,2) not null check (unit_price >= 0),
+  tax_rate numeric(5,2) not null default 0 check (tax_rate >= 0),
+  line_total numeric(12,2) not null check (line_total >= 0)
+);
+
+create table if not exists public.payments (
+  id uuid primary key default gen_random_uuid(),
+  invoice_id uuid not null references public.invoices(id) on delete restrict,
+  method text not null,
+  amount numeric(12,2) not null check (amount > 0),
+  paid_at timestamptz not null default now(),
+  note text not null default '',
+  created_at timestamptz not null default now()
+);
+
+create index if not exists subscriptions_customer_status_idx
+  on public.subscriptions(customer_id, status);
+create index if not exists subscriptions_start_date_idx
+  on public.subscriptions(start_date);
+create index if not exists invoices_customer_status_due_idx
+  on public.invoices(customer_id, status, due_date);
+create index if not exists payments_invoice_idx
+  on public.payments(invoice_id);
+create index if not exists plans_product_active_idx
+  on public.plans(product_id, active);
+
+-- Helper checks role without exposing profile data. Used by RLS policies below.
+create or replace function public.current_user_is_staff()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.role in ('admin', 'staff')
+  );
+$$;
+
+create or replace function public.current_user_is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid()) and p.role = 'admin'
+  );
+$$;
+
+create or replace function public.current_user_owns_customer(customer_uuid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.customers c
+    where c.id = customer_uuid and c.auth_user_id = (select auth.uid())
+  );
+$$;
+
+grant execute on function public.current_user_is_staff() to authenticated;
+grant execute on function public.current_user_is_admin() to authenticated;
+grant execute on function public.current_user_owns_customer(uuid) to authenticated;
+
+alter table public.profiles enable row level security;
+alter table public.customers enable row level security;
+alter table public.products enable row level security;
+alter table public.product_variants enable row level security;
+alter table public.plans enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.subscription_lines enable row level security;
+alter table public.discounts enable row level security;
+alter table public.invoices enable row level security;
+alter table public.invoice_lines enable row level security;
+alter table public.payments enable row level security;
+
+create policy "profiles_read_self_or_staff" on public.profiles
+  for select to authenticated
+  using (id = (select auth.uid()) or (select public.current_user_is_staff()));
+create policy "profiles_admin_manage" on public.profiles
+  for all to authenticated
+  using ((select public.current_user_is_admin()))
+  with check ((select public.current_user_is_admin()));
+
+create policy "customers_staff_manage" on public.customers
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "customers_read_self" on public.customers
+  for select to authenticated
+  using (auth_user_id = (select auth.uid()));
+
+create policy "products_read_authenticated" on public.products
+  for select to authenticated using (active or (select public.current_user_is_staff()));
+create policy "products_staff_manage" on public.products
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "variants_read_authenticated" on public.product_variants
+  for select to authenticated using (true);
+create policy "variants_staff_manage" on public.product_variants
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "plans_read_authenticated" on public.plans
+  for select to authenticated using (active or (select public.current_user_is_staff()));
+create policy "plans_staff_manage" on public.plans
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+
+create policy "subscriptions_staff_manage" on public.subscriptions
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "subscriptions_customer_read" on public.subscriptions
+  for select to authenticated
+  using ((select public.current_user_owns_customer(customer_id)));
+create policy "subscription_lines_staff_manage" on public.subscription_lines
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "subscription_lines_customer_read" on public.subscription_lines
+  for select to authenticated
+  using (exists (
+    select 1 from public.subscriptions s
+    where s.id = subscription_id and public.current_user_owns_customer(s.customer_id)
+  ));
+
+create policy "discounts_read_active_or_staff" on public.discounts
+  for select to authenticated using (active or (select public.current_user_is_staff()));
+create policy "discounts_admin_manage" on public.discounts
+  for all to authenticated
+  using ((select public.current_user_is_admin()))
+  with check ((select public.current_user_is_admin()));
+
+create policy "invoices_staff_manage" on public.invoices
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "invoices_customer_read" on public.invoices
+  for select to authenticated
+  using ((select public.current_user_owns_customer(customer_id)));
+create policy "invoice_lines_staff_manage" on public.invoice_lines
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "invoice_lines_customer_read" on public.invoice_lines
+  for select to authenticated
+  using (exists (
+    select 1 from public.invoices i
+    where i.id = invoice_id and public.current_user_owns_customer(i.customer_id)
+  ));
+
+create policy "payments_staff_manage" on public.payments
+  for all to authenticated
+  using ((select public.current_user_is_staff()))
+  with check ((select public.current_user_is_staff()));
+create policy "payments_customer_read" on public.payments
+  for select to authenticated
+  using (exists (
+    select 1 from public.invoices i
+    where i.id = invoice_id and public.current_user_owns_customer(i.customer_id)
+  ));
+```
+
+**Important schema note:** the starter SQL deliberately does not create Admin/Staff accounts or automatically assign privileged roles. Antigravity must implement customer profile creation safely and document a trusted one-time Admin setup. Never let a public sign-up form set `role = 'admin'` or `role = 'staff'`. Review the generated policies against the app's actual access patterns before using real data.
+
+**Completion checklist:**
+
+- [ ] Supabase connection uses only the public anon/publishable key in the browser.
+- [ ] SQL setup is saved in the repository and can be applied in the Supabase SQL Editor.
+- [ ] RLS is enabled on every app table; customer ownership and staff/admin policies are in place.
+- [ ] Duplicate invoices for the same subscription and period are prevented by the database constraint.
+- [ ] Indexes support customer/status/date filters used by the dashboard.
+- [ ] Password reset URL and email setup steps are documented.
+- [ ] Admin/Staff role assignment is trusted and cannot be self-selected at sign-up.
+
+**Changes made:** _Antigravity fills this in when the phase is complete._
+
+**Notes:**
+
+## Phase 3 — Authentication and role-based views
+
+**Status:** Not started
+
+**Work:** Implement email/password sign-up and login, password reset email, session handling, and role-aware navigation. Add a safe initial Admin setup. Staff creation must be Admin-only. Apply the same permissions in the database and server-side actions, not only by hiding buttons in the UI.
+
+**Completion checklist:**
+
+- [ ] Sign-up, login, logout, and password reset work.
+- [ ] Admin, Staff, and Customer land on the correct views.
+- [ ] Only Admin can add staff.
+- [ ] A customer cannot read another customer's records, including by changing a URL or record ID.
+
+**Changes made:** _Antigravity fills this in when the phase is complete._
+
+**Notes:**
+
+## Phase 4 — Products, plans, quotes, and subscriptions
+
+**Status:** Not started
+
+**Work:** Build focused screens for product/variant/plan setup and subscription management. Implement quotation templates only as simply as needed for the demo. Support the stated subscription statuses and the plan's basic pause, renewal, expiry, and early-close rules.
+
+**Completion checklist:**
+
+- [ ] Admin can create/edit products, variants, and plans.
+- [ ] Variant price adjustment and billing interval are reflected in subscription pricing.
+- [ ] Staff can create a quote/subscription with customer, dates, payment terms, lines, quantities, and prices.
+- [ ] Subscription status changes follow the specified lifecycle.
+- [ ] Customer portal lists only that customer's subscriptions.
+
+**Changes made:** _Antigravity fills this in when the phase is complete._
+
+**Notes:**
+
+## Phase 5 — Invoices, discounts, payments, dashboard, and performance
+
+**Status:** Not started
+
+**Work:** Generate invoices from active subscriptions for a selected billing period. Apply tax and eligible discounts, record manual payments, and provide the finance summary and filters. Use pagination and database queries/aggregates instead of loading every row into the browser. Seed enough representative data to demonstrate the brief's scale requirement. Avoid extra infrastructure unless the app cannot meet the demo need without it.
+
+**Completion checklist:**
+
+- [ ] Invoice contains customer, subscription, period, lines, tax, discounts, totals, due date, and status.
+- [ ] Database uniqueness prevents duplicate invoices for the same subscription period.
+- [ ] Staff can confirm/cancel/print invoices and record payments; customer can read their own invoices.
+- [ ] Discount rules respect type, eligibility, dates, and usage limit.
+- [ ] Dashboard shows active subscriptions, collected revenue, outstanding/overdue invoices, with filters.
+- [ ] Dashboard uses pagination or server-side aggregates and remains responsive with thousands of sample subscriptions.
+- [ ] The project can show or explain the under-two-second page response target in the demo without making unsupported claims.
+
+**Changes made:** _Antigravity fills this in when the phase is complete._
+
+**Notes:**
+
+## Phase 6 — Demo polish and video-ready flow
+
+**Status:** Not started
+
+**Work:** Prepare reliable Admin, Staff, and Customer demo accounts and realistic sample data. Check the complete user journey, labels, loading/empty/error states, responsive behavior, and dashboard responsiveness. Plan and record the video around the working features; keep the narration focused on the problem solved and the proof shown.
+
+**Suggested video sequence:**
+
+1. Briefly show the product and role-specific navigation.
+2. Admin creates or opens a product and plan.
+3. Staff creates a subscription and confirms it.
+4. Generate the billing-period invoice and show tax/discount totals.
+5. Record a manual payment and show the invoice status change.
+6. Open the customer portal to show only that customer's subscription/invoice.
+7. Show dashboard filters and the larger dataset/performance result.
+
+**Completion checklist:**
+
+- [ ] Demo accounts and data work from a clean session.
+- [ ] Full flow can be shown without manual database edits during recording.
+- [ ] Video shows actual functionality and performance evidence.
+- [ ] No secrets, personal data, unfinished screens, or misleading performance claims appear in the recording.
+
+**Changes made:** _Antigravity fills this in when the phase is complete._
+
+**Notes:**
+
+## Change log
+
+| Date | Phase | Status | Summary of changes |
+|---|---|---|---|
+| 2026-10-31 | Plan created | Ready | Created the agreed six-phase plan, UI direction, Supabase setup notes, and starter SQL schema. |
+| 2026-10-31 | Phase 1 | Complete | Bootstrapped Next.js with TypeScript and Tailwind CSS, built restrained neutral design system with teal accent, implemented role-aware AppShell (Admin, Staff, Customer), UI Foundation styleguide, and created all role destination views. Added .env.example and safe Supabase client placeholder. |
+
