@@ -39,17 +39,32 @@ export const VALID_TRANSITIONS: Record<SubscriptionStatus, SubscriptionStatus[]>
   closed: [], // Terminal state
 };
 
+export interface SubscriptionFilters {
+  customerId?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
 // Fetch subscriptions (Role-aware: Customers only see their own; Staff/Admin see all)
-export async function getSubscriptions(targetCustomerId?: string) {
+export async function getSubscriptions(filtersOrCustomer?: string | SubscriptionFilters) {
   const supabase = await createClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const filterObj: SubscriptionFilters =
+    typeof filtersOrCustomer === "string"
+      ? { customerId: filtersOrCustomer }
+      : filtersOrCustomer || {};
+
+  const page = filterObj.page || 1;
+  const pageSize = filterObj.pageSize || 25;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
   let query = supabase
     .from("subscriptions")
-    .select(`
+    .select(
+      `
       *,
       customer:customers(id, name, email),
       plan:plans(
@@ -72,19 +87,25 @@ export async function getSubscriptions(targetCustomerId?: string) {
         tax_rate,
         variant:product_variants(id, name, price_adjustment)
       )
-    `)
+    `,
+      { count: "exact" }
+    )
     .order("created_at", { ascending: false });
 
-  // If customer is querying, enforce customer filter or let RLS handle it
-  if (targetCustomerId) {
-    query = query.eq("customer_id", targetCustomerId);
+  // If customer querying or specific customer filter
+  if (filterObj.customerId) {
+    query = query.eq("customer_id", filterObj.customerId);
   }
 
-  const { data: subscriptions, error } = await query;
+  if (filterObj.status && filterObj.status !== "all") {
+    query = query.eq("status", filterObj.status);
+  }
+
+  const { data: subscriptions, error, count } = await query.range(from, to);
 
   if (error) {
     console.error("Error fetching subscriptions:", error.message);
-    return { data: [], error: error.message };
+    return { data: [], totalCount: 0, error: error.message };
   }
 
   // Calculate computed totals for each subscription
@@ -107,7 +128,7 @@ export async function getSubscriptions(targetCustomerId?: string) {
     };
   });
 
-  return { data: enriched, error: null };
+  return { data: enriched, totalCount: count || 0, error: null };
 }
 
 // Fetch single subscription with lines

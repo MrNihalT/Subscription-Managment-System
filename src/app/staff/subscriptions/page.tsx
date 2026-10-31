@@ -47,6 +47,8 @@ export default function StaffSubscriptionsPage() {
   const [customers, setCustomers] = useState<any[]>([]);
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
   const [activeTab, setActiveTab] = useState<string>("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -68,21 +70,29 @@ export default function StaffSubscriptionsPage() {
 
   const loadData = async () => {
     setLoading(true);
-    const [subsRes, custRes, plansRes] = await Promise.all([
-      getSubscriptions(),
-      getCustomers(),
-      getPlans(),
-    ]);
+    try {
+      const [subsRes, custRes, plansRes] = await Promise.all([
+        getSubscriptions({ page, pageSize: 15, status: activeTab }),
+        getCustomers(),
+        getPlans(),
+      ]);
 
-    if (subsRes.data) setSubscriptions(subsRes.data);
-    if (custRes.data) setCustomers(custRes.data);
-    if (plansRes.data) setPlans(plansRes.data);
-    setLoading(false);
+      if (subsRes.data) {
+        setSubscriptions(subsRes.data);
+        setTotalCount(subsRes.totalCount || subsRes.data.length);
+      }
+      if (custRes.data) setCustomers(custRes.data);
+      if (plansRes.data) setPlans(plansRes.data);
+    } catch (err: any) {
+      console.error("Error loading staff subscriptions data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [page, activeTab]);
 
   const openNewQuoteModal = () => {
     setAlertState(null);
@@ -316,7 +326,10 @@ export default function StaffSubscriptionsPage() {
             ].map((tab) => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setPage(1);
+                }}
                 className={`px-2.5 py-1 text-xs rounded-md font-medium transition-colors ${
                   activeTab === tab.id
                     ? "bg-zinc-900 text-white font-semibold"
@@ -508,6 +521,40 @@ export default function StaffSubscriptionsPage() {
               })}
             </TableBody>
           </Table>
+
+          {/* Pagination Footer */}
+          {totalCount > 0 && (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-zinc-200 bg-zinc-50/50 text-xs text-zinc-600">
+              <div>
+                Showing <span className="font-semibold text-zinc-900">{(page - 1) * 15 + 1}</span> to{" "}
+                <span className="font-semibold text-zinc-900">{Math.min(page * 15, totalCount)}</span> of{" "}
+                <span className="font-semibold text-zinc-900">{totalCount}</span> subscriptions
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1 || loading}
+                  className="text-xs h-7 px-2.5"
+                >
+                  Previous
+                </Button>
+                <span className="text-xs font-mono px-2 text-zinc-700">
+                  Page {page} of {Math.ceil(totalCount / 15) || 1}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setPage((p) => p + 1)}
+                  disabled={page * 15 >= totalCount || loading}
+                  className="text-xs h-7 px-2.5"
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         </Card>
       )}
 

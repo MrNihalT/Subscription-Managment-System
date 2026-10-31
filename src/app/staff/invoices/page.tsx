@@ -83,7 +83,7 @@ export default function StaffInvoicesPage() {
         status: activeFilter,
         search: searchTerm,
       }),
-      getSubscriptions(),
+      getSubscriptions({ status: "active", pageSize: 100 }),
     ]);
 
     if (invRes.data) {
