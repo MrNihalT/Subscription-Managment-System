@@ -40,21 +40,69 @@ export default function CustomerSubscriptionsPage() {
             .eq("auth_user_id", user.id)
             .single();
 
-          if (cust) {
-            setCustomerRecord(cust);
-            const { data: subs } = await getSubscriptions(cust.id);
-            if (subs) setSubscriptions(subs);
-          } else {
-            // Fallback match on customer email if not yet linked
+          let targetCust = cust;
+          if (!targetCust) {
             const { data: custByEmail } = await supabase
               .from("customers")
               .select("*")
               .eq("email", user.email || "")
               .single();
+            targetCust = custByEmail;
+          }
 
-            if (custByEmail) {
-              setCustomerRecord(custByEmail);
-              const { data: subs } = await getSubscriptions(custByEmail.id);
+          if (targetCust) {
+            setCustomerRecord(targetCust);
+
+            // Fetch with direct authenticated client session
+            const { data: directSubs } = await supabase
+              .from("subscriptions")
+              .select(`
+                *,
+                plan:plans(
+                  id,
+                  name,
+                  billing_interval,
+                  price,
+                  allow_pause,
+                  allow_early_close,
+                  allow_renewal,
+                  product:products(id, name)
+                ),
+                lines:subscription_lines(
+                  id,
+                  product_id,
+                  variant_id,
+                  description,
+                  quantity,
+                  unit_price,
+                  tax_rate,
+                  variant:product_variants(id, name, price_adjustment)
+                )
+              `)
+              .eq("customer_id", targetCust.id)
+              .order("created_at", { ascending: false });
+
+            if (directSubs && directSubs.length > 0) {
+              const enriched = directSubs.map((sub: any) => {
+                let subtotal = 0;
+                let taxTotal = 0;
+                (sub.lines || []).forEach((line: any) => {
+                  const lineSub = Number(line.quantity) * Number(line.unit_price);
+                  const lineTax = lineSub * (Number(line.tax_rate) / 100);
+                  subtotal += lineSub;
+                  taxTotal += lineTax;
+                });
+                return {
+                  ...sub,
+                  linesTotal: subtotal,
+                  taxTotal,
+                  grandTotal: subtotal + taxTotal,
+                };
+              });
+              setSubscriptions(enriched);
+            } else {
+              // Server action fallback
+              const { data: subs } = await getSubscriptions(targetCust.id);
               if (subs) setSubscriptions(subs);
             }
           }

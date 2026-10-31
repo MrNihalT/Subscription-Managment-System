@@ -40,20 +40,33 @@ export default function CustomerInvoicesPage() {
             .eq("auth_user_id", user.id)
             .single();
 
-          if (cust) {
-            setCustomerRecord(cust);
-            const { data: invs } = await getInvoices({ customerId: cust.id });
-            if (invs) setInvoices(invs);
-          } else {
+          let targetCust = cust;
+          if (!targetCust) {
             const { data: custByEmail } = await supabase
               .from("customers")
               .select("*")
               .eq("email", user.email || "")
               .single();
+            targetCust = custByEmail;
+          }
 
-            if (custByEmail) {
-              setCustomerRecord(custByEmail);
-              const { data: invs } = await getInvoices({ customerId: custByEmail.id });
+          if (targetCust) {
+            setCustomerRecord(targetCust);
+
+            const { data: directInvs } = await supabase
+              .from("invoices")
+              .select(`
+                *,
+                subscription:subscriptions(id, subscription_number),
+                lines:invoice_lines(*)
+              `)
+              .eq("customer_id", targetCust.id)
+              .order("created_at", { ascending: false });
+
+            if (directInvs && directInvs.length > 0) {
+              setInvoices(directInvs);
+            } else {
+              const { data: invs } = await getInvoices({ customerId: targetCust.id });
               if (invs) setInvoices(invs);
             }
           }
