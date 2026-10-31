@@ -51,7 +51,7 @@ Keep implementation foundations such as design tokens and architecture notes beh
 - [x] Phase 1 — Project setup and UI foundation
 - [x] Phase 2 — Supabase setup, SQL schema, and access rules
 - [x] Phase 3 — Authentication and role-based views
-- [ ] Phase 4 — Products, plans, quotes, and subscriptions
+- [x] Phase 4 — Products, plans, quotes, and subscriptions
 - [ ] Phase 5 — Invoices, discounts, payments, dashboard, and performance
 - [ ] Phase 6 — Demo polish and video-ready flow
 
@@ -462,21 +462,44 @@ create policy "payments_customer_read" on public.payments
 
 ## Phase 4 — Products, plans, quotes, and subscriptions
 
-**Status:** Not started
+**Status:** Complete
 
 **Work:** Build focused screens for product/variant/plan setup and subscription management. Implement quotation templates only as simply as needed for the demo. Support the stated subscription statuses and the plan's basic pause, renewal, expiry, and early-close rules.
 
 **Completion checklist:**
 
-- [ ] Admin can create/edit products, variants, and plans.
-- [ ] Variant price adjustment and billing interval are reflected in subscription pricing.
-- [ ] Staff can create a quote/subscription with customer, dates, payment terms, lines, quantities, and prices.
-- [ ] Subscription status changes follow the specified lifecycle.
-- [ ] Customer portal lists only that customer's subscriptions.
+- [x] Admin can create/edit products, variants, and plans.
+- [x] Variant price adjustment and billing interval are reflected in subscription pricing.
+- [x] Staff can create a quote/subscription with customer, dates, payment terms, lines, quantities, and prices.
+- [x] Subscription status changes follow the specified lifecycle.
+- [x] Customer portal lists only that customer's subscriptions.
 
-**Changes made:** _Antigravity fills this in when the phase is complete._
+**Changes made:**
+- Built server-side data service layer in `src/lib/services/`:
+  - `products.ts`: CRUD operations for catalog products (`subscription`, `one_time`, `addon`), pricing fields (`sales_price`, `cost_price`), notes, and `product_variants` with positive/negative price adjustments (`price_adjustment`). Includes seed utility (`seedCatalogDemoData`).
+  - `plans.ts`: CRUD operations for recurring plans linked to catalog products, interval options (`daily`, `weekly`, `monthly`, `yearly`), minimum quantities, date ranges (`available_from`, `available_until`), and lifecycle rules (`allow_pause`, `allow_early_close`, `allow_renewal`).
+  - `customers.ts`: Customer directory queries and creation.
+  - `subscriptions.ts`: Full subscription quote workflow (`createSubscriptionQuote`), plan template pre-fill (`getQuotationTemplateForPlan`), line items management, computed subtotal/tax/grand totals, and strict status lifecycle transitions (`updateSubscriptionStatus`) with plan policy checks.
+- Admin Product Management (`src/app/admin/products/page.tsx`):
+  - Live table and modal forms for adding and editing products with types, sales price, cost price, notes, active toggle, and inline product variants with price adjustments.
+  - Included a 1-click catalog seed button to immediately populate realistic SaaS/infrastructure products with variants.
+- Admin Plan Management (`src/app/admin/plans/page.tsx`):
+  - Live table and modal forms for adding and editing plans tied to catalog products, supporting all intervals (`daily`, `weekly`, `monthly`, `yearly`), availability constraints, minimum quantity, and policy switches (`allow_pause`, `allow_early_close`, `allow_renewal`).
+- Staff Customer Directory (`src/app/staff/customers/page.tsx`):
+  - Live customer management table and registration modal linked to `public.customers`.
+- Staff Quotes & Subscriptions Lifecycle (`src/app/staff/subscriptions/page.tsx`):
+  - Quote creator modal with customer selector, plan selector, variant selector, date range, payment terms, and dynamic line items calculation including taxes and variant price deltas.
+  - Reusable template flow: selecting a plan automatically pre-fills contract dates and default product lines based on billing interval and variant pricing.
+  - Interactive subscription drawer with lifecycle state progression buttons obeying `VALID_TRANSITIONS` (`draft` → `quotation` → `confirmed` → `active` → `paused` / `closed`), with server-side validation against plan pause and early close policies.
+- Customer Portal & Subscriptions (`src/app/customer/portal/page.tsx` and `src/app/customer/subscriptions/page.tsx`):
+  - Updated both customer views to fetch only the authenticated customer's live subscriptions and line items from Supabase, protected by Row Level Security (`subscriptions_customer_read` and `subscription_lines_customer_read`).
+  - Shows contract details, recurring billing amounts, itemized product lines, variant badges with price adjustments, and plan policy permissions.
+- Verified production build (`npm run build`) passing with zero TypeScript or route compilation errors.
 
 **Notes:**
+- Quotation templates use a streamlined plan/product pre-fill mechanism (`getQuotationTemplateForPlan`) avoiding unnecessary extra database tables.
+- RLS policies and server-side checks strictly isolate customer records; customers cannot see or access subscriptions belonging to other accounts.
+- Phase 5 (invoices, discount engine, manual payments, dashboard KPIs, and scale/performance benchmarks) remains untouched.
 
 ## Phase 5 — Invoices, discounts, payments, dashboard, and performance
 
@@ -533,4 +556,5 @@ create policy "payments_customer_read" on public.payments
 | 2026-10-31 | Phase 1 | Complete | Bootstrapped Next.js with TypeScript and Tailwind CSS, built restrained neutral design system with teal accent, implemented role-aware AppShell (Admin, Staff, Customer), UI Foundation styleguide, and created all role destination views. Added .env.example and safe Supabase client placeholder. |
 | 2026-10-31 | Phase 2 | Complete | User confirmed `supabase/schema.sql` was applied in Supabase; schema, RLS, indexes, duplicate invoice prevention, role guard, and setup guide are ready for Phase 3. |
 | 2026-10-31 | Phase 3 | Complete | Implemented email/password sign-up, login, logout, password reset, middleware route guards, trusted profile role resolution, Admin-only staff creation API, and removed UI Foundation/Status pages from product UI. |
+| 2026-10-31 | Phase 4 | Complete | Built real product & variant management, plans with billing intervals and policy rules, quotes with pre-fill templates and variant adjustments, full subscription lifecycle transitions (Draft → Quotation → Confirmed → Active → Closed), and customer portal RLS isolation. |
 
