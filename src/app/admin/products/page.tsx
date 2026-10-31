@@ -39,6 +39,7 @@ export default function AdminProductsPage() {
     product_type: "subscription" as "subscription" | "one_time" | "addon",
     sales_price: 100,
     cost_price: 50,
+    tax_rate: 10.0,
     notes: "",
     active: true,
   });
@@ -66,6 +67,7 @@ export default function AdminProductsPage() {
       product_type: "subscription",
       sales_price: 199,
       cost_price: 90,
+      tax_rate: 10.0,
       notes: "",
       active: true,
     });
@@ -81,6 +83,7 @@ export default function AdminProductsPage() {
       product_type: p.product_type,
       sales_price: Number(p.sales_price),
       cost_price: Number(p.cost_price),
+      tax_rate: p.tax_rate !== undefined ? Number(p.tax_rate) : 10.0,
       notes: p.notes || "",
       active: p.active,
     });
@@ -248,6 +251,7 @@ export default function AdminProductsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead className="text-right">Sales Price</TableHead>
                 <TableHead className="text-right">Cost Price</TableHead>
+                <TableHead className="text-right">Tax Rate</TableHead>
                 <TableHead className="text-right">Est. Margin</TableHead>
                 <TableHead>Configured Variants</TableHead>
                 <TableHead>Status</TableHead>
@@ -280,6 +284,9 @@ export default function AdminProductsPage() {
                     </TableCell>
                     <TableCell className="text-right font-mono text-zinc-500">
                       ${Number(prod.cost_price).toFixed(2)}
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-zinc-600 text-xs">
+                      {prod.tax_rate !== undefined ? `${Number(prod.tax_rate)}%` : "10.0%"}
                     </TableCell>
                     <TableCell
                       className={`text-right font-mono text-xs font-medium ${
@@ -392,6 +399,17 @@ export default function AdminProductsPage() {
                   value={formData.cost_price}
                   onChange={(e) =>
                     setFormData({ ...formData, cost_price: parseFloat(e.target.value) || 0 })
+                  }
+                  disabled={submitting}
+                />
+                <Input
+                  label="Tax Rate (%) *"
+                  type="number"
+                  step="0.1"
+                  required
+                  value={formData.tax_rate}
+                  onChange={(e) =>
+                    setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })
                   }
                   disabled={submitting}
                 />

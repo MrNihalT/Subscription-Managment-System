@@ -369,7 +369,7 @@ export async function getQuotationTemplateForPlan(plan: any, variant?: any) {
           : plan.name,
         quantity: plan.minimum_quantity || 1,
         unit_price: unitPrice,
-        tax_rate: 10.0, // standard 10% demo tax
+        tax_rate: plan.product?.tax_rate !== undefined ? Number(plan.product.tax_rate) : 10.0,
       },
     ],
   };

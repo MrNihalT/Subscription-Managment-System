@@ -14,6 +14,7 @@ export interface ProductInput {
   product_type: "subscription" | "one_time" | "addon";
   sales_price: number;
   cost_price: number;
+  tax_rate?: number;
   notes?: string;
   active?: boolean;
   variants?: ProductVariantInput[];
@@ -70,6 +71,7 @@ export async function createProduct(input: ProductInput) {
       product_type: input.product_type,
       sales_price: Number(input.sales_price),
       cost_price: Number(input.cost_price),
+      tax_rate: input.tax_rate !== undefined ? Number(input.tax_rate) : 10.0,
       notes: input.notes?.trim() || "",
       active: input.active !== undefined ? input.active : true,
     })
@@ -135,6 +137,7 @@ export async function updateProduct(id: string, input: Partial<ProductInput>) {
   if (input.product_type !== undefined) updateFields.product_type = input.product_type;
   if (input.sales_price !== undefined) updateFields.sales_price = Number(input.sales_price);
   if (input.cost_price !== undefined) updateFields.cost_price = Number(input.cost_price);
+  if (input.tax_rate !== undefined) updateFields.tax_rate = Number(input.tax_rate);
   if (input.notes !== undefined) updateFields.notes = input.notes.trim();
   if (input.active !== undefined) updateFields.active = input.active;
 

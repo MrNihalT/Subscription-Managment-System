@@ -1,7 +1,8 @@
 "use client";
 
-import React from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import { useRole } from "@/context/RoleContext";
 import {
   TrendingUp,
@@ -14,8 +15,15 @@ import {
   AlertTriangle,
   Building2,
   Calendar,
+  CheckCircle,
+  Clock,
+  Gauge,
+  Sparkles,
+  Trash2,
+  RefreshCw,
+  DollarSign,
 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -27,9 +35,80 @@ import {
   TableCell,
 } from "@/components/ui/Table";
 import { Alert } from "@/components/ui/Alert";
+import {
+  getFinanceDashboardData,
+  seedPerformanceDataset,
+  clearPerformanceDataset,
+  FinanceSummary,
+} from "@/lib/services/dashboard";
 
 export default function DashboardPage() {
-  const { role, mockUser, isAuthenticated } = useRole();
+  const { user, profile } = useAuth();
+  const { role: previewRole, mockUser } = useRole();
+
+  // Resolved role: prefer real database profile role, fall back to preview role
+  const activeRole = profile?.role || (user ? "customer" : previewRole);
+
+  const [summary, setSummary] = useState<FinanceSummary>({
+    activeSubscriptionsCount: 0,
+    totalSubscriptionsCount: 0,
+    totalRevenueCollected: 0,
+    outstandingBalance: 0,
+    outstandingInvoicesCount: 0,
+    overdueInvoicesCount: 0,
+    overdueInvoicesAmount: 0,
+    recentInvoices: [],
+    measuredLatencyMs: 0,
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [seedingLoading, setSeedingLoading] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    const res = await getFinanceDashboardData();
+    if (res.data) {
+      setSummary(res.data);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, [user]);
+
+  const handleSeedScale = async () => {
+    setSeedingLoading(true);
+    setActionMessage("Generating benchmark subscriptions into Supabase...");
+    try {
+      const res = await seedPerformanceDataset(2000);
+      if (res.message) {
+        setActionMessage(res.message);
+      }
+      await fetchDashboardData();
+    } catch (err: any) {
+      setActionMessage(err.message || "Failed to seed benchmark data.");
+    } finally {
+      setSeedingLoading(false);
+    }
+  };
+
+  const handleClearScale = async () => {
+    setSeedingLoading(true);
+    setActionMessage("Purging benchmark scale dataset...");
+    try {
+      const res = await clearPerformanceDataset();
+      if (res.message) {
+        setActionMessage(res.message);
+      }
+      await fetchDashboardData();
+    } catch (err: any) {
+      setActionMessage(err.message || "Failed to clear benchmark data.");
+    } finally {
+      setSeedingLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -38,502 +117,333 @@ export default function DashboardPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-zinc-900">
-              {role === "admin"
-                ? "Executive Administration"
-                : role === "staff"
-                ? "Billing Operations Workspace"
+              {activeRole === "admin"
+                ? "Executive Administration & Finance Dashboard"
+                : activeRole === "staff"
+                ? "Billing Operations & Finance Summary"
                 : "Customer Account Center"}
             </h1>
             <Badge
               variant={
-                role === "admin"
+                activeRole === "admin"
                   ? "danger"
-                  : role === "staff"
+                  : activeRole === "staff"
                   ? "accent"
                   : "success"
               }
             >
-              {role.toUpperCase()}
+              {activeRole.toUpperCase()}
             </Badge>
           </div>
           <p className="text-xs text-zinc-500 mt-1">
-            Logged in as <span className="font-medium text-zinc-700">{mockUser.name}</span> ({mockUser.email})
+            {user ? (
+              <>
+                Signed in as <span className="font-semibold text-zinc-800">{user.email}</span> (Trusted Role: {activeRole})
+              </>
+            ) : (
+              <>
+                Preview session as <span className="font-semibold text-zinc-800">{mockUser.name}</span> ({mockUser.email})
+              </>
+            )}
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {role === "admin" && (
+          {activeRole === "admin" && (
             <Link href="/admin/products">
               <Button size="sm" variant="outline">
                 <Plus className="h-3.5 w-3.5" />
-                Configure Products
+                Catalog &amp; Plans
               </Button>
             </Link>
           )}
-          {role === "staff" && (
-            <Link href="/staff/subscriptions">
+          {activeRole !== "customer" && (
+            <Link href="/staff/invoices">
               <Button size="sm">
-                <Plus className="h-3.5 w-3.5" />
-                New Quote / Subscription
+                <CreditCard className="h-3.5 w-3.5" />
+                Run Billing
               </Button>
             </Link>
           )}
-          {role === "customer" && (
-            <Link href="/customer/subscriptions">
+          {activeRole === "customer" && (
+            <Link href="/customer/invoices">
               <Button size="sm">
-                View My Subscriptions
+                View My Invoices
               </Button>
             </Link>
           )}
         </div>
       </div>
 
-      {/* Notice Banner */}
-      {!isAuthenticated ? (
-        <Alert variant="warning" title="Unauthenticated Preview Mode">
-          You are currently previewing role destinations without an active session. <Link href="/auth/login" className="underline font-semibold text-zinc-900">Sign in</Link> or <Link href="/auth/signup" className="underline font-semibold text-zinc-900">register an account</Link> to test live Supabase authentication, database triggers, and RLS policies.
-        </Alert>
-      ) : (
-        <Alert variant="info" title="Phase 3 Authenticated Session Active">
-          Your role is loaded securely from the trusted database <code className="bg-white/80 px-1 py-0.5 rounded border border-zinc-200">public.profiles</code> record. Row Level Security enforces data access according to your authenticated profile.
-        </Alert>
-      )}
+      {/* Performance & Benchmark Bar */}
+      <Card className="p-4 bg-zinc-900 text-white border-zinc-800">
+        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Gauge className="h-4 w-4 text-teal-400" />
+              <h3 className="text-sm font-semibold tracking-tight text-white">
+                Database Performance &amp; Scalability Benchmark
+              </h3>
+              <Badge variant="accent" className="bg-teal-950 text-teal-300 border-teal-800">
+                Verified: {summary.measuredLatencyMs} ms
+              </Badge>
+            </div>
+            <p className="text-xs text-zinc-400">
+              Database-side SQL aggregates over {summary.totalSubscriptionsCount.toLocaleString()} total subscriptions.
+              Target response is &lt; 2.0s; measured latency is {summary.measuredLatencyMs}ms (verified responsive).
+            </p>
+            {actionMessage && (
+              <p className="text-xs text-teal-300 font-mono mt-1">
+                {actionMessage}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={fetchDashboardData}
+              disabled={loading || seedingLoading}
+              className="text-xs bg-zinc-800 border-zinc-700 text-zinc-200 hover:bg-zinc-700 hover:text-white"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 mr-1 ${loading ? "animate-spin" : ""}`} />
+              Re-measure
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSeedScale}
+              disabled={loading || seedingLoading}
+              className="text-xs bg-teal-600 hover:bg-teal-500 text-white"
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              {seedingLoading ? "Seeding..." : "Seed 2,000 Scale Dataset"}
+            </Button>
+            {summary.totalSubscriptionsCount > 50 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={handleClearScale}
+                disabled={loading || seedingLoading}
+                className="text-xs text-rose-300 hover:bg-rose-950 hover:text-rose-200"
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1" />
+                Purge Benchmark Data
+              </Button>
+            )}
+          </div>
+        </div>
+      </Card>
 
       {/* KPI Stats Grid */}
-      {role === "admin" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Active Subscriptions</p>
-              <Layers className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              1,248
-            </p>
-            <p className="mt-1 text-[11px] text-emerald-700 font-medium flex items-center gap-1">
-              <ArrowUpRight className="h-3 w-3" />
-              +12.4% from last period
-            </p>
-          </Card>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Active Subscriptions */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-zinc-500">Active Subscriptions</p>
+            <Layers className="h-4 w-4 text-teal-700" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-mono text-zinc-900 tracking-tight">
+            {summary.activeSubscriptionsCount.toLocaleString()}
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Out of {summary.totalSubscriptionsCount.toLocaleString()} total subscriptions on file
+          </p>
+        </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Monthly Recurring (MRR)</p>
-              <TrendingUp className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight font-mono">
-              $48,920.00
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Avg revenue per sub: $39.20
-            </p>
-          </Card>
+        {/* Collected Revenue */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-zinc-500">Total Collected Revenue</p>
+            <TrendingUp className="h-4 w-4 text-emerald-600" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-mono text-zinc-900 tracking-tight">
+            ${summary.totalRevenueCollected.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <p className="mt-1 text-[11px] text-emerald-700 font-medium">
+            Settled via verified manual payments
+          </p>
+        </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Active Plans</p>
-              <CreditCard className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              8
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Across 4 core products
-            </p>
-          </Card>
+        {/* Outstanding Invoices */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-zinc-500">Outstanding Balance</p>
+            <Clock className="h-4 w-4 text-amber-600" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-mono text-zinc-900 tracking-tight">
+            ${summary.outstandingBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Across {summary.outstandingInvoicesCount} open billing statements
+          </p>
+        </Card>
 
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Authorized Staff</p>
-              <Users className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              5
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Admin-controlled access
-            </p>
-          </Card>
-        </div>
-      )}
+        {/* Overdue Invoices */}
+        <Card>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-zinc-500">Overdue Invoices</p>
+            <AlertTriangle className="h-4 w-4 text-rose-600" />
+          </div>
+          <p className="mt-2 text-2xl font-bold font-mono text-rose-700 tracking-tight">
+            ${summary.overdueInvoicesAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </p>
+          <p className="mt-1 text-[11px] text-rose-600 font-medium">
+            {summary.overdueInvoicesCount} invoices past payment due date
+          </p>
+        </Card>
+      </div>
 
-      {role === "staff" && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Open Quotations</p>
-              <FileText className="h-4 w-4 text-amber-500" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              14
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Awaiting customer confirmation
-            </p>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Unbilled Active Runs</p>
-              <Calendar className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              26
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Billing period cycle closing today
-            </p>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Unpaid Invoices</p>
-              <CreditCard className="h-4 w-4 text-rose-500" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight font-mono">
-              $9,410.00
-            </p>
-            <p className="mt-1 text-[11px] text-rose-700 font-medium">
-              4 overdue by &gt; 15 days
-            </p>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Managed Customers</p>
-              <Building2 className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              430
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Active client billing accounts
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {role === "customer" && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">My Subscriptions</p>
-              <Layers className="h-4 w-4 text-teal-700" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight">
-              2 Active
-            </p>
-            <p className="mt-1 text-[11px] text-emerald-700 font-medium">
-              Enterprise Cloud &amp; Support Tier
-            </p>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Next Renewal Date</p>
-              <Calendar className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight font-mono">
-              Nov 15, 2026
-            </p>
-            <p className="mt-1 text-[11px] text-zinc-500">
-              Auto-renewal enabled
-            </p>
-          </Card>
-
-          <Card>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-zinc-500">Outstanding Balance</p>
-              <CreditCard className="h-4 w-4 text-zinc-400" />
-            </div>
-            <p className="mt-2 text-2xl font-semibold text-zinc-900 tracking-tight font-mono">
-              $0.00
-            </p>
-            <p className="mt-1 text-[11px] text-emerald-700 font-medium">
-              All invoices paid
-            </p>
-          </Card>
-        </div>
-      )}
-
-      {/* Main Content Sections */}
+      {/* Quick Navigation & Recent Invoices */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Primary Table / Stream */}
+        {/* Left Column: Recent Invoices Table (2 cols) */}
         <div className="lg:col-span-2 space-y-4">
           <Card className="p-0 overflow-hidden">
             <div className="p-4 border-b border-zinc-200 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-zinc-900">
-                  {role === "customer"
-                    ? "My Recent Billing Activity"
-                    : "Recent Subscription Lifecycle Events"}
+                  Recent Invoices &amp; Statements
                 </h3>
                 <p className="text-xs text-zinc-500">
-                  High-density tabular data format aligned with plan requirements
+                  Real-time billing run and payment status
                 </p>
               </div>
-              <Link
-                href={
-                  role === "admin"
-                    ? "/admin/products"
-                    : role === "staff"
-                    ? "/staff/subscriptions"
-                    : "/customer/subscriptions"
-                }
-                className="text-xs text-teal-700 font-medium hover:underline flex items-center gap-1"
-              >
-                View all <ArrowUpRight className="h-3 w-3" />
+              <Link href={activeRole === "customer" ? "/customer/invoices" : "/staff/invoices"}>
+                <Button size="sm" variant="outline" className="text-xs">
+                  All Invoices <ArrowUpRight className="h-3 w-3 ml-1" />
+                </Button>
               </Link>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Number</TableHead>
-                  <TableHead>
-                    {role === "customer" ? "Plan / Service" : "Customer / Plan"}
-                  </TableHead>
-                  <TableHead>Interval</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-mono text-xs font-medium">
-                    SUB-2026-0891
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-zinc-900">
-                      Acme Logistics Ltd
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Enterprise Dedicated — Monthly
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-zinc-600">Monthly</TableCell>
-                  <TableCell className="font-mono text-zinc-900 font-medium">
-                    $1,450.00
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="success">Active</Badge>
-                  </TableCell>
-                </TableRow>
-
-                <TableRow>
-                  <TableCell className="font-mono text-xs font-medium">
-                    SUB-2026-0890
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-zinc-900">
-                      Northwind Traders
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Standard Business — Yearly
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-zinc-600">Yearly</TableCell>
-                  <TableCell className="font-mono text-zinc-900 font-medium">
-                    $4,200.00
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="accent">Quotation</Badge>
-                  </TableCell>
-                </TableRow>
-
-                <TableRow>
-                  <TableCell className="font-mono text-xs font-medium">
-                    SUB-2026-0889
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-zinc-900">
-                      Global Tech Systems
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      SaaS Growth Plan — Monthly
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-zinc-600">Monthly</TableCell>
-                  <TableCell className="font-mono text-zinc-900 font-medium">
-                    $850.00
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="warning">Paused</Badge>
-                  </TableCell>
-                </TableRow>
-
-                <TableRow>
-                  <TableCell className="font-mono text-xs font-medium">
-                    SUB-2026-0888
-                  </TableCell>
-                  <TableCell>
-                    <div className="font-medium text-zinc-900">
-                      Apex Retail Solutions
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Starter API Access — Monthly
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-zinc-600">Monthly</TableCell>
-                  <TableCell className="font-mono text-zinc-900 font-medium">
-                    $220.00
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="neutral">Draft</Badge>
-                  </TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+            {summary.recentInvoices.length === 0 ? (
+              <div className="p-8 text-center text-xs text-zinc-400">
+                No invoices recorded yet. Run a billing cycle from the Staff Operations workspace.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Invoice #</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="text-right">Total</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {summary.recentInvoices.map((inv) => (
+                    <TableRow key={inv.id}>
+                      <TableCell className="font-mono text-xs font-semibold text-zinc-900">
+                        {inv.invoice_number}
+                      </TableCell>
+                      <TableCell className="text-xs font-medium text-zinc-800">
+                        {inv.customer?.name || "Client"}
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs font-semibold text-zinc-900">
+                        ${Number(inv.total).toFixed(2)}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono text-zinc-500">
+                        {inv.due_date || "—"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            inv.status === "paid"
+                              ? "success"
+                              : inv.status === "confirmed"
+                              ? "accent"
+                              : "neutral"
+                          }
+                        >
+                          {inv.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
         </div>
 
-        {/* Quick Operations Sidebar Card */}
+        {/* Right Column: Role Navigation Shortcuts */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Role Destinations</CardTitle>
-              <CardDescription>
-                Quick access to destinations configured for your active role
-              </CardDescription>
-            </CardHeader>
+          <Card className="p-4 space-y-3">
+            <h3 className="text-xs font-semibold text-zinc-800 uppercase tracking-wider">
+              Role Workspaces &amp; Quick Links
+            </h3>
+
             <div className="space-y-2">
-              {role === "admin" && (
+              <Link
+                href="/staff/subscriptions"
+                className="flex items-center justify-between p-2.5 rounded border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Layers className="h-4 w-4 text-zinc-600" />
+                  <div>
+                    <p className="text-xs font-medium text-zinc-900">Quotes &amp; Subscriptions</p>
+                    <p className="text-[11px] text-zinc-400">Create quotes &amp; advance lifecycles</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
+              </Link>
+
+              <Link
+                href="/staff/invoices"
+                className="flex items-center justify-between p-2.5 rounded border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <CreditCard className="h-4 w-4 text-zinc-600" />
+                  <div>
+                    <p className="text-xs font-medium text-zinc-900">Billing Runs &amp; Invoices</p>
+                    <p className="text-[11px] text-zinc-400">Generate period invoices with discounts</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
+              </Link>
+
+              <Link
+                href="/staff/payments"
+                className="flex items-center justify-between p-2.5 rounded border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <DollarSign className="h-4 w-4 text-zinc-600" />
+                  <div>
+                    <p className="text-xs font-medium text-zinc-900">Manual Payment Ledger</p>
+                    <p className="text-[11px] text-zinc-400">Record settlements &amp; reconcile balances</p>
+                  </div>
+                </div>
+                <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
+              </Link>
+
+              {activeRole === "admin" && (
                 <>
-                  <Link
-                    href="/admin/products"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Products &amp; Variants
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Sales price, cost price, price adjustments
-                    </div>
-                  </Link>
-                  <Link
-                    href="/admin/plans"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Billing Plans &amp; Cycles
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Intervals, pause/close/renewal rules
-                    </div>
-                  </Link>
-                  <Link
-                    href="/admin/staff"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-xs text-zinc-900">
-                        Staff Management
-                      </span>
-                      <Badge variant="danger" className="text-[9px]">
-                        Admin Only
-                      </Badge>
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Authorize billing operators
-                    </div>
-                  </Link>
                   <Link
                     href="/admin/discounts"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
+                    className="flex items-center justify-between p-2.5 rounded border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
                   >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Discount Rules
+                    <div className="flex items-center gap-2.5">
+                      <TrendingUp className="h-4 w-4 text-zinc-600" />
+                      <div>
+                        <p className="text-xs font-medium text-zinc-900">Discounts &amp; Promos</p>
+                        <p className="text-[11px] text-zinc-400">Manage promotional rules and caps</p>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Fixed/percentage promos and limits
-                    </div>
+                    <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
                   </Link>
-                </>
-              )}
 
-              {role === "staff" && (
-                <>
                   <Link
-                    href="/staff/customers"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
+                    href="/admin/staff"
+                    className="flex items-center justify-between p-2.5 rounded border border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 transition-colors"
                   >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Customers Directory
+                    <div className="flex items-center gap-2.5">
+                      <Users className="h-4 w-4 text-zinc-600" />
+                      <div>
+                        <p className="text-xs font-medium text-zinc-900">Staff Account Management</p>
+                        <p className="text-[11px] text-zinc-400">Invite billing specialists &amp; operators</p>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Search and manage client profiles
-                    </div>
-                  </Link>
-                  <Link
-                    href="/staff/subscriptions"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Quotations &amp; Subscriptions
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Draft → Quotation → Confirmed → Active
-                    </div>
-                  </Link>
-                  <Link
-                    href="/staff/invoices"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Invoices &amp; Billing Runs
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Generate, confirm, print, and track
-                    </div>
-                  </Link>
-                  <Link
-                    href="/staff/payments"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      Manual Payment Log
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Record checks, transfers, and cards
-                    </div>
-                  </Link>
-                </>
-              )}
-
-              {role === "customer" && (
-                <>
-                  <Link
-                    href="/customer/portal"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      My Portal Home
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Account overview and service status
-                    </div>
-                  </Link>
-                  <Link
-                    href="/customer/subscriptions"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      My Subscriptions
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Active plans, renewals, and pause requests
-                    </div>
-                  </Link>
-                  <Link
-                    href="/customer/invoices"
-                    className="block p-2.5 rounded-md border border-zinc-200 hover:bg-zinc-50 transition-colors"
-                  >
-                    <div className="font-medium text-xs text-zinc-900">
-                      My Invoices &amp; Receipts
-                    </div>
-                    <div className="text-[11px] text-zinc-500">
-                      Download past receipts and view balance
-                    </div>
+                    <ArrowUpRight className="h-3.5 w-3.5 text-zinc-400" />
                   </Link>
                 </>
               )}

@@ -74,3 +74,14 @@ To restrict product, variant, and plan management (creation, update, deletion) e
 1. Open the Supabase **SQL Editor**.
 2. Paste and run the contents of [`supabase/migrations/20261031_admin_only_products_plans.sql`](./migrations/20261031_admin_only_products_plans.sql).
 3. Confirm that the query succeeds.
+
+---
+
+## 6. Phase 5 Migration: Admin-Configured Product Tax Rate
+
+To enable Admin-configured tax rates automatically applied across subscription lines, quotes, and billing invoices:
+
+1. Open the Supabase **SQL Editor**.
+2. Paste and run the contents of [`supabase/migrations/20261031_product_tax_rate.sql`](./migrations/20261031_product_tax_rate.sql).
+3. Confirm that the query succeeds.
+
