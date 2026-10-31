@@ -43,17 +43,17 @@ export default function StatusPage() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-3 rounded-md border border-zinc-200 bg-white">
-            <Circle className="h-5 w-5 text-zinc-400 shrink-0 mt-0.5" />
+          <div className="flex items-start gap-3 p-3 rounded-md border border-teal-200 bg-teal-50/40">
+            <CheckCircle2 className="h-5 w-5 text-teal-700 shrink-0 mt-0.5" />
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-xs text-zinc-900">
                   Phase 2 — Supabase Setup, SQL Schema, and Access Rules
                 </span>
-                <Badge variant="neutral">Next Up</Badge>
+                <Badge variant="accent">In Progress / SQL Ready</Badge>
               </div>
-              <p className="text-xs text-zinc-500 mt-1">
-                Awaiting user-provided Supabase project URL and anon key in <code className="text-zinc-700">.env.local</code>. Will execute starter SQL schema with RLS policies and table indexes.
+              <p className="text-xs text-zinc-600 mt-1">
+                Repeatable schema file created at <code className="font-mono text-zinc-800">supabase/schema.sql</code> with 11 tables, RLS policies, duplicate period constraints, and performance indexes. Setup guide documented at <code className="font-mono text-zinc-800">supabase/README.md</code>. Ready to run in Supabase SQL Editor.
               </p>
             </div>
           </div>

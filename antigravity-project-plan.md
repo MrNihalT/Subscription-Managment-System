@@ -44,10 +44,12 @@ Keep the implementation straightforward. Prefer Supabase's built-in auth and dat
 
 Make the product calm, clear, and easy to use. Use a restrained neutral palette, readable typography, consistent spacing, and one purposeful accent color chosen to suit the interface. Avoid generic AI-generated styling, decorative gradients, excessive rounded cards, and trendy blue/rose palettes. Prioritize clear labels, useful empty states, tables that scan well, and short forms with sensible defaults.
 
+Keep implementation foundations such as design tokens and architecture notes behind the scenes. Do not expose a "Foundation & Docs" navigation group, UI foundation/token showcase, architecture/status page, or documentation cards/links as product UI. Do not add documentation that is not needed to build, configure, or demo the project.
+
 ## Overall progress
 
 - [x] Phase 1 — Project setup and UI foundation
-- [ ] Phase 2 — Supabase setup, SQL schema, and access rules
+- [x] Phase 2 — Supabase setup, SQL schema, and access rules
 - [ ] Phase 3 — Authentication and role-based views
 - [ ] Phase 4 — Products, plans, quotes, and subscriptions
 - [ ] Phase 5 — Invoices, discounts, payments, dashboard, and performance
@@ -85,7 +87,7 @@ Make the product calm, clear, and easy to use. Use a restrained neutral palette,
 
 ## Phase 2 — Supabase setup, SQL schema, and access rules
 
-**Status:** Not started
+**Status:** Complete
 
 **Work:** Connect the app to a Supabase project. Add a readable SQL setup file to the repository and apply it through the Supabase SQL Editor. Set up the tables and indexes needed for the agreed demo scope. Enable Row Level Security (RLS); customers must only read their own customer record, subscriptions, invoices, invoice lines, and payments. Admin/Staff access should be explicit. Do not put a Supabase service-role key in browser code.
 
@@ -402,17 +404,29 @@ create policy "payments_customer_read" on public.payments
 
 **Completion checklist:**
 
-- [ ] Supabase connection uses only the public anon/publishable key in the browser.
-- [ ] SQL setup is saved in the repository and can be applied in the Supabase SQL Editor.
-- [ ] RLS is enabled on every app table; customer ownership and staff/admin policies are in place.
-- [ ] Duplicate invoices for the same subscription and period are prevented by the database constraint.
-- [ ] Indexes support customer/status/date filters used by the dashboard.
-- [ ] Password reset URL and email setup steps are documented.
-- [ ] Admin/Staff role assignment is trusted and cannot be self-selected at sign-up.
+- [x] Supabase connection uses only the public anon/publishable key in the browser.
+- [x] SQL setup is saved in the repository and can be applied in the Supabase SQL Editor.
+- [x] RLS is enabled on every app table; customer ownership and staff/admin policies are in place (user confirmed `supabase/schema.sql` was applied in Supabase SQL Editor).
+- [x] Duplicate invoices for the same subscription and period are prevented by the database constraint (`unique_subscription_period`).
+- [x] Indexes support customer/status/date filters used by the dashboard.
+- [x] Password reset URL and email setup steps are documented.
+- [x] Admin/Staff role assignment is trusted and cannot be self-selected at sign-up.
 
-**Changes made:** _Antigravity fills this in when the phase is complete._
+**Changes made:**
+- Validated the existing Supabase configuration via `.env.local` using standard `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` variables; verified that no secret keys are exposed or committed.
+- Created `supabase/schema.sql`:
+  - 11 application tables (`profiles`, `customers`, `products`, `product_variants`, `plans`, `subscriptions`, `subscription_lines`, `discounts`, `invoices`, `invoice_lines`, `payments`) with all checks, foreign keys, and constraints.
+  - Added unique constraint `unique_subscription_period` on `invoices(subscription_id, period_start, period_end)` to prevent duplicate billing for the same subscription period.
+  - Added 10 performance and filtering indexes covering customer, status, start_date, due_date, and plan activity for sub-2-second queries.
+  - Added security definer helper functions: `current_user_is_staff()`, `current_user_is_admin()`, and `current_user_owns_customer(uuid)`.
+  - Enabled Row Level Security on all 11 tables with granular customer isolation, staff billing operations, and admin-exclusive policies (staff and discounts management).
+  - Added `handle_new_user()` trigger on `auth.users` ensuring all public sign-ups are hardcoded to `role = 'customer'`, preventing privilege escalation.
+  - Added trusted initial Admin promotion procedure `promote_user_to_admin(target_email)`.
+- Created `supabase/README.md` with step-by-step instructions for applying `supabase/schema.sql` in the Supabase SQL Editor, configuring Site URL and password-reset redirect URLs, and executing initial Admin setup.
 
 **Notes:**
+- User confirmed that `supabase/schema.sql` was applied in the Supabase SQL Editor.
+- Authentication screens and logic remain untouched for Phase 3.
 
 ## Phase 3 — Authentication and role-based views
 
@@ -502,4 +516,5 @@ create policy "payments_customer_read" on public.payments
 |---|---|---|---|
 | 2026-10-31 | Plan created | Ready | Created the agreed six-phase plan, UI direction, Supabase setup notes, and starter SQL schema. |
 | 2026-10-31 | Phase 1 | Complete | Bootstrapped Next.js with TypeScript and Tailwind CSS, built restrained neutral design system with teal accent, implemented role-aware AppShell (Admin, Staff, Customer), UI Foundation styleguide, and created all role destination views. Added .env.example and safe Supabase client placeholder. |
+| 2026-10-31 | Phase 2 | Complete | User confirmed `supabase/schema.sql` was applied in Supabase; schema, RLS, indexes, duplicate invoice prevention, role guard, and setup guide are ready for Phase 3. |
 
